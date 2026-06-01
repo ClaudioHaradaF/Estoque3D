@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block titulo %}{% if insumo %}Editar{% else %}Novo{% endif %} Insumo{% endblock %}
+{% block page_title %}{% if insumo %}Editar Insumo{% else %}Novo Insumo{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="glass-card">
+            <div class="card-header">
+                <h5>
+                    {% if insumo %}
+                        <i class="bi bi-pencil"></i> Editar Insumo
+                    {% else %}
+                        <i class="bi bi-plus-lg"></i> Novo Insumo
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="nome" name="nome"
+                               value="{{ insumo.nome if insumo else '' }}" required>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="preco_custo" class="form-label">Preço de Custo (R$)</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="preco_custo" name="preco_custo"
+                                   value="{{ insumo.preco_custo if insumo else '0' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="qtd_estoque" class="form-label">Estoque</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="qtd_estoque" name="qtd_estoque"
+                                   value="{{ insumo.qtd_estoque if insumo else '0' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="unidade" class="form-label">Unidade</label>
+                            <select class="form-select" id="unidade" name="unidade">
+                                {% for u in unidades %}
+                                <option value="{{ u }}" {% if insumo and insumo.unidade == u %}selected{% endif %}>{{ u }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="descricao" name="descricao" rows="3">{{ insumo.descricao if insumo else '' }}</textarea>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('insumos.listar') }}" class="btn btn-outline-secondary">Voltar</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if insumo %}Atualizar{% else %}Cadastrar{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

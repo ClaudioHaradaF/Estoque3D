@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block titulo %}{% if categoria %}Editar{% else %}Nova{% endif %} Categoria{% endblock %}
+{% block page_title %}{% if categoria %}Editar Categoria{% else %}Nova Categoria{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="glass-card">
+            <div class="card-header">
+                <h5>
+                    {% if categoria %}
+                        <i class="bi bi-pencil"></i> Editar Categoria
+                    {% else %}
+                        <i class="bi bi-plus-lg"></i> Nova Categoria
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="nome" name="nome"
+                               value="{{ categoria.nome if categoria else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="descricao" name="descricao" rows="3">{{ categoria.descricao if categoria else '' }}</textarea>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('categorias.listar') }}" class="btn btn-outline-secondary">Voltar</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if categoria %}Atualizar{% else %}Cadastrar{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

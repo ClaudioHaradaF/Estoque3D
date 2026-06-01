@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block titulo %}Venda #{{ venda.id }}{% endblock %}
+{% block page_title %}Venda #{{ venda.id }}{% endblock %}
+
+{% block header_actions %}
+<form action="{{ url_for('vendas.excluir', id=venda.id) }}" method="POST" class="d-inline"
+      onsubmit="return confirm('Cancelar esta venda? O estoque ser\u00e1 restaurado.')">
+    <button type="submit" class="btn btn-outline-danger">
+        <i class="bi bi-x-lg"></i> Cancelar Venda
+    </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card mb-4">
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <small style="color: var(--text-muted); display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Data</small>
+                <strong style="color: var(--text-primary);">{{ venda.data_venda.strftime('%d/%m/%Y') }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small style="color: var(--text-muted); display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Cliente</small>
+                <strong style="color: var(--text-primary);">{{ venda.cliente_nome or 'Não informado' }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small style="color: var(--text-muted); display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Total</small>
+                <strong style="font-size: 20px; color: #34d399;">R$ {{ "%.2f"|format(venda.valor_total)|replace('.',',') }}</strong>
+            </div>
+            <div class="col-md-3">
+                <small style="color: var(--text-muted); display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Lucro</small>
+                <strong style="font-size: 20px; color: #a78bfa;">R$ {{ "%.2f"|format(venda.lucro_total)|replace('.',',') }}</strong>
+            </div>
+        </div>
+        {% if venda.observacao %}
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <small style="color: var(--text-muted); display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Observação</small>
+                <p class="mb-0" style="color: var(--text-primary);">{{ venda.observacao }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="card-header">
+        <h5><i class="bi bi-box" style="color: #a78bfa;"></i> Itens da Venda</h5>
+    </div>
+    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th class="text-center">Qtd</th>
+                    <th class="text-center">Preço Unit.</th>
+                    <th class="text-center">Custo Unit.</th>
+                    <th class="text-center">Subtotal</th>
+                    <th class="text-center">Lucro</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in venda.itens %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('produtos.detalhes', id=item.produto_id) }}" style="color: #a78bfa;">
+                            {{ item.produto.nome }}
+                        </a>
+                    </td>
+                    <td class="text-center">{{ item.qtd }}</td>
+                    <td class="text-center">R$ {{ "%.2f"|format(item.preco_unitario)|replace('.',',') }}</td>
+                    <td class="text-center" style="color: var(--text-muted);">R$ {{ "%.2f"|format(item.custo_unitario)|replace('.',',') }}</td>
+                    <td class="text-center fw-medium">R$ {{ "%.2f"|format(item.subtotal)|replace('.',',') }}</td>
+                    <td class="text-center" style="color: #34d399;">R$ {{ "%.2f"|format(item.lucro_item)|replace('.',',') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end fw-bold" style="font-size: 16px; color: var(--text-primary);">Totais:</td>
+                    <td class="text-center fw-bold" style="font-size: 16px; color: #34d399;">R$ {{ "%.2f"|format(venda.valor_total)|replace('.',',') }}</td>
+                    <td class="text-center fw-bold" style="font-size: 16px; color: #a78bfa;">R$ {{ "%.2f"|format(venda.lucro_total)|replace('.',',') }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

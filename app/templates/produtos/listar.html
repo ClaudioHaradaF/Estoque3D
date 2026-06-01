@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block titulo %}Produtos{% endblock %}
+{% block page_title %}Produtos{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('produtos.novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Novo Produto
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="card-body">
+        <div class="toolbar">
+            <form class="search-box" method="GET">
+                <input type="text" class="form-control" name="busca" placeholder="Buscar produto..."
+                       value="{{ busca }}">
+                <select class="form-select" name="categoria_id" style="max-width: 200px;">
+                    <option value="">Todas categorias</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.id }}" {% if cat_filtro|string == cat.id|string %}selected{% endif %}>{{ cat.nome }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
+                {% if busca or cat_filtro %}
+                <a href="{{ url_for('produtos.listar') }}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Categoria</th>
+                    <th>Preço Venda</th>
+                    <th>Custo</th>
+                    <th>Margem</th>
+                    <th>Estoque</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in produtos %}
+                <tr>
+                    <td style="color: var(--text-primary); font-weight: 500;">
+                        <a href="{{ url_for('produtos.detalhes', id=p.id) }}">{{ p.nome }}</a>
+                    </td>
+                    <td>{{ p.categoria_nome }}</td>
+                    <td>R$ {{ "%.2f"|format(p.preco_venda)|replace('.',',') }}</td>
+                    <td style="color: var(--text-muted);">R$ {{ "%.2f"|format(p.custo_producao)|replace('.',',') }}</td>
+                    <td>
+                        {% if p.margem_lucro >= 50 %}
+                        <span class="badge bg-success">{{ p.margem_lucro }}%</span>
+                        {% elif p.margem_lucro >= 20 %}
+                        <span class="badge bg-warning">{{ p.margem_lucro }}%</span>
+                        {% else %}
+                        <span class="badge bg-danger">{{ p.margem_lucro }}%</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if p.qtd_estoque <= 5 %}bg-danger bg-pulse{% elif p.qtd_estoque <= 10 %}bg-warning{% else %}bg-success{% endif %}">
+                            {{ p.qtd_estoque }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('produtos.detalhes', id=p.id) }}" class="btn btn-outline-info btn-sm btn-icon">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{{ url_for('produtos.editar', id=p.id) }}" class="btn btn-outline-primary btn-sm btn-icon">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="{{ url_for('produtos.excluir', id=p.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Excluir produto {{ p.nome }}?')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                            <rect x="12" y="20" width="40" height="30" rx="4" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                            <path d="M12 28h40" stroke="#2c2c2c" stroke-width="2"/>
+                            <rect x="24" y="32" width="16" height="10" rx="2" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
+                        </svg>
+                        <p>Nenhum produto encontrado</p>
+                        <a href="{{ url_for('produtos.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeiro</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

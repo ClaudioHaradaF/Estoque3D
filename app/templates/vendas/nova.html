@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+{% block titulo %}Nova Venda{% endblock %}
+{% block page_title %}Nova Venda{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="glass-card">
+            <div class="card-header">
+                <h5><i class="bi bi-plus-lg"></i> Registrar Venda</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="formVenda">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="data_venda" class="form-label">Data da Venda</label>
+                            <input type="date" class="form-control" id="data_venda" name="data_venda"
+                                   value="{{ hoje.isoformat() }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="cliente_nome" class="form-label">Cliente</label>
+                            <input type="text" class="form-control" id="cliente_nome" name="cliente_nome"
+                                   placeholder="Nome do cliente (opcional)">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="observacao" class="form-label">Observação</label>
+                            <input type="text" class="form-control" id="observacao" name="observacao"
+                                   placeholder="Observação (opcional)">
+                        </div>
+                    </div>
+
+                    <hr style="border-color: var(--glass-border);">
+                    <h5 style="font-weight: 700;"><i class="bi bi-box" style="color: #a78bfa;"></i> Produtos</h5>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <select class="form-select" id="selectProduto">
+                                <option value="">Selecione um produto...</option>
+                                {% for p in produtos %}
+                                <option value="{{ p.id }}"
+                                        data-nome="{{ p.nome }}"
+                                        data-preco="{{ p.preco_venda }}"
+                                        data-estoque="{{ p.qtd_estoque }}">
+                                    {{ p.nome }} (estoque: {{ p.qtd_estoque }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" class="form-control" id="inputQuantidade" placeholder="Qtd" min="1" value="1">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="number" step="0.01" class="form-control" id="inputPreco" placeholder="Preço">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-primary w-100" id="btnAdicionar">
+                                <i class="bi bi-plus-lg"></i> Adicionar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container mb-3">
+                        <table id="tabelaItens">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th class="text-center" style="width:100px">Qtd</th>
+                                    <th class="text-center" style="width:130px">Preço Unit.</th>
+                                    <th class="text-center" style="width:130px">Subtotal</th>
+                                    <th class="text-center" style="width:50px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itensBody">
+                                <tr id="linhaVazia">
+                                    <td colspan="5" class="empty-state">
+                                        Nenhum produto adicionado.
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold" style="font-size: 16px; color: var(--text-primary);">Total:</td>
+                                    <td class="text-center fw-bold" style="font-size: 18px; color: #34d399;" id="totalVenda">R$ 0,00</td>
+                                    <td></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold" style="color: var(--text-muted);">Lucro Total:</td>
+                                    <td class="text-center fw-bold" style="color: #a78bfa;" id="lucroVenda">R$ 0,00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('vendas.listar') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary btn-lg" id="btnFinalizar">
+                            <i class="bi bi-check-lg"></i> Finalizar Venda
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const produtos = {{ produtos | tojson }};
+
+document.getElementById('selectProduto').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (opt && opt.value) {
+        document.getElementById('inputPreco').value = opt.dataset.preco;
+        document.getElementById('inputQuantidade').value = 1;
+    }
+});
+
+document.getElementById('btnAdicionar').addEventListener('click', adicionarItem);
+document.getElementById('inputQuantidade').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); adicionarItem(); }
+});
+document.getElementById('inputPreco').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); adicionarItem(); }
+});
+
+function adicionarItem() {
+    const select = document.getElementById('selectProduto');
+    const qtdInput = document.getElementById('inputQuantidade');
+    const precoInput = document.getElementById('inputPreco');
+    const opt = select.options[select.selectedIndex];
+
+    if (!opt || !opt.value) {
+        alert('Selecione um produto.');
+        return;
+    }
+
+    const produtoId = parseInt(opt.value);
+    const nome = opt.dataset.nome;
+    const preco = parseFloat(precoInput.value) || 0;
+    const qtd = parseInt(qtdInput.value) || 1;
+    const estoque = parseInt(opt.dataset.estoque);
+
+    if (qtd <= 0) { alert('Quantidade inválida.'); return; }
+    if (preco <= 0) { alert('Preço inválido.'); return; }
+
+    const existing = document.querySelector(`input[name="produto_id[]"][value="${produtoId}"]`);
+    if (existing) {
+        alert('Este produto já foi adicionado. Remova-o primeiro se quiser alterar.');
+        return;
+    }
+
+    const linhaVazia = document.getElementById('linhaVazia');
+    if (linhaVazia) linhaVazia.remove();
+
+    const subtotal = preco * qtd;
+    const tr = document.createElement('tr');
+    tr.dataset.produtoId = produtoId;
+    tr.innerHTML = `
+        <td>${nome}</td>
+        <td class="text-center">
+            <input type="hidden" name="produto_id[]" value="${produtoId}">
+            <input type="hidden" name="quantidade[]" value="${qtd}">
+            <input type="hidden" name="preco[]" value="${preco.toFixed(2)}">
+            ${qtd}
+        </td>
+        <td class="text-center">R$ ${preco.toFixed(2).replace('.',',')}</td>
+        <td class="text-center subtotal-item">R$ ${subtotal.toFixed(2).replace('.',',')}</td>
+        <td class="text-center">
+            <button type="button" class="btn btn-outline-danger btn-sm btn-icon" onclick="removerItem(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    document.getElementById('itensBody').appendChild(tr);
+    recalcularTotais();
+    select.selectedIndex = 0;
+    qtdInput.value = 1;
+    precoInput.value = '';
+}
+
+function removerItem(btn) {
+    btn.closest('tr').remove();
+    recalcularTotais();
+    if (document.querySelectorAll('#itensBody tr').length === 0) {
+        document.getElementById('itensBody').innerHTML = `
+            <tr id="linhaVazia">
+                <td colspan="5" class="empty-state">Nenhum produto adicionado.</td>
+            </tr>
+        `;
+    }
+}
+
+function recalcularTotais() {
+    let total = 0;
+    let lucro = 0;
+    document.querySelectorAll('#itensBody tr').forEach(function(tr) {
+        const pid = parseInt(tr.dataset.produtoId);
+        const qtd = parseInt(tr.querySelector('input[name="quantidade[]"]')?.value) || 0;
+        const preco = parseFloat(tr.querySelector('input[name="preco[]"]')?.value) || 0;
+        const prod = produtos.find(p => p.id === pid);
+        total += preco * qtd;
+        if (prod) {
+            lucro += (preco - prod.custo_producao) * qtd;
+        }
+    });
+    document.getElementById('totalVenda').textContent = 'R$ ' + total.toFixed(2).replace('.',',');
+    document.getElementById('lucroVenda').textContent = 'R$ ' + lucro.toFixed(2).replace('.',',');
+}
+
+document.getElementById('formVenda').addEventListener('submit', function(e) {
+    const itens = document.querySelectorAll('input[name="produto_id[]"]');
+    if (itens.length === 0) {
+        e.preventDefault();
+        alert('Adicione ao menos um produto à venda.');
+    }
+});
+</script>
+{% endblock %}

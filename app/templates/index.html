@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+{% block titulo %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block header_actions %}
+<form class="date-filter" method="GET">
+    <div>
+        <label class="form-label visually-hidden" for="data_ini">De</label>
+        <input type="date" class="form-control" id="data_ini" name="data_ini"
+               value="{{ data_ini.isoformat() }}">
+    </div>
+    <div>
+        <label class="form-label visually-hidden" for="data_fim">Até</label>
+        <input type="date" class="form-control" id="data_fim" name="data_fim"
+               value="{{ data_fim.isoformat() }}">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel"></i> Filtrar</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="kpi-grid">
+    <div class="kpi-card animate-on-scroll delay-1">
+        <div class="kpi-label">Produtos</div>
+        <div class="kpi-value" data-count="{{ total_produtos }}">{{ total_produtos }}</div>
+    </div>
+    <div class="kpi-card animate-on-scroll delay-2">
+        <div class="kpi-label">Insumos</div>
+        <div class="kpi-value" data-count="{{ total_insumos }}">{{ total_insumos }}</div>
+    </div>
+    <div class="kpi-card animate-on-scroll delay-3">
+        <div class="kpi-label">Vendas (período)</div>
+        <div class="kpi-value" data-count="{{ total_vendas }}">{{ total_vendas }}</div>
+    </div>
+    <div class="kpi-card animate-on-scroll delay-4">
+        <div class="kpi-label">Faturamento</div>
+        <div class="kpi-value" data-count="{{ valor_periodo }}" data-money="true">R$ {{ format_br(valor_periodo) }}</div>
+        <div class="kpi-sub">Lucro: R$ {{ format_br(lucro_periodo) }}</div>
+    </div>
+    <div class="kpi-card animate-on-scroll delay-5">
+        <div class="kpi-label">Valor em Estoque</div>
+        <div class="kpi-value" data-count="{{ valor_estoque }}" data-money="true">R$ {{ format_br(valor_estoque) }}</div>
+    </div>
+    <div class="kpi-card animate-on-scroll delay-6">
+        <div class="kpi-label">Saúde</div>
+        <div class="kpi-value" style="font-size: 18px;">
+            <span class="stock-health-dots">
+                <span class="dot dot-ok">● {{ saude_ok }}</span>
+                <span class="dot dot-warn">● {{ saude_baixo }}</span>
+                <span class="dot dot-danger">● {{ saude_zerado }}</span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="masonry">
+    <div class="glass-card card-accent-top animate-on-scroll delay-1">
+        <div class="card-header">
+            <h5><i class="bi bi-pie-chart"></i> Produtos por Categoria</h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="chartCategorias"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card card-accent-top animate-on-scroll delay-1">
+        <div class="card-header">
+            <h5><i class="bi bi-heart-pulse"></i> Saúde do Estoque</h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 220px;">
+                <canvas id="chartSaude"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-card card-accent-top animate-on-scroll delay-2">
+        <div class="card-header">
+            <h5><i class="bi bi-receipt"></i> Últimas Vendas</h5>
+        </div>
+        {% if ultimas_vendas %}
+        <div class="card-body" style="padding: 0;">
+            <table style="border: none;">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Data</th>
+                        <th>Cliente</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in ultimas_vendas %}
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">{{ v.id }}</td>
+                        <td>{{ v.data_venda.strftime('%d/%m') }}</td>
+                        <td>{{ v.cliente_nome or '---' }}</td>
+                        <td><span class="badge bg-success">R$ {{ format_br(v.valor_total) }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="card-body">
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <p>Nenhuma venda no período</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="glass-card card-accent-top animate-on-scroll delay-3">
+        <div class="card-header">
+            <h5><i class="bi bi-graph-up"></i> Vendas Diárias</h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="chartVendas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    {% if top_prod_labels|length > 0 %}
+    <div class="glass-card card-accent-top animate-on-scroll delay-4">
+        <div class="card-header">
+            <h5><i class="bi bi-trophy"></i> Produtos Mais Vendidos</h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="chartTopProdutos"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="glass-card card-accent-top animate-on-scroll delay-5">
+        <div class="card-header">
+            <h5><i class="bi bi-currency-exchange"></i> Média Diária</h5>
+        </div>
+        <div class="card-body" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px;">
+            {% set dias_diff = (data_fim - data_ini).days + 1 %}
+            {% set media = valor_periodo / dias_diff if dias_diff > 0 else 0 %}
+            {% set media_lucro = lucro_periodo / dias_diff if dias_diff > 0 else 0 %}
+            <div style="font-family: var(--font); font-size: 36px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;">
+                R$ {{ format_br(media) }}
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                Lucro médio: R$ {{ format_br(media_lucro) }}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if produtos_baixo_count > 0 %}
+<div class="divider-waves"></div>
+
+<div class="glass-card card-accent-top animate-on-scroll delay-1" style="border-color: rgba(188, 0, 45, 0.2); margin-top: 8px;">
+    <div class="card-header" style="border-bottom-color: rgba(188, 0, 45, 0.1);">
+        <h5 style="color: var(--accent);"><i class="bi bi-exclamation-triangle"></i> Produtos com Estoque Baixo (≤ 5)</h5>
+    </div>
+    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Produto</th>
+                    <th>Categoria</th>
+                    <th>Estoque</th>
+                    <th>Preço</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in produtos_baixo_estoque %}
+                <tr class="table-row-animate">
+                    <td style="color: var(--text-primary); font-weight: 500;">{{ p.nome }}</td>
+                    <td>{{ p.categoria_nome }}</td>
+                    <td><span class="badge bg-danger bg-pulse">{{ p.qtd_estoque }}</span></td>
+                    <td>R$ {{ format_br(p.preco_venda) }}</td>
+                    <td>
+                        <a href="{{ url_for('produtos.editar', id=p.id) }}" class="btn btn-outline-primary btn-sm btn-icon">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+Chart.defaults.color = '#5c5550';
+Chart.defaults.borderColor = '#e8e0d8';
+Chart.defaults.font.family = "'Outfit', sans-serif";
+
+var chartColors = ['#BC002D', '#2c6b8a', '#2d7d5a', '#b8860b', '#8a7f7a', '#5c5550', '#d4a853', '#2c2c2c'];
+
+// === DONUT: Produtos por Categoria ===
+var catLabels = {{ cat_labels | tojson }};
+var catData = {{ cat_data | tojson }};
+new Chart(document.getElementById('chartCategorias'), {
+    type: 'doughnut',
+    data: {
+        labels: catLabels,
+        datasets: [{
+            data: catData,
+            backgroundColor: chartColors.map(function(c) { return c + 'cc'; }),
+            borderColor: chartColors,
+            borderWidth: 1,
+            hoverOffset: 12
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { padding: 14, usePointStyle: true, pointStyle: 'circle', color: '#5c5550', font: { size: 11 } }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(245,240,235,0.98)',
+                titleColor: '#2c2c2c',
+                bodyColor: '#5c5550',
+                borderColor: '#e8e0d8',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 6,
+                boxPadding: 6,
+                callbacks: {
+                    label: function(ctx) {
+                        var total = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                        var pct = ((ctx.parsed / total) * 100).toFixed(1);
+                        return ' ' + ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                    }
+                }
+            }
+        },
+        animation: {
+            animateRotate: true,
+            duration: 1400,
+            easing: 'easeOutQuart'
+        }
+    }
+});
+
+// === DOUGHNUT: Saúde do Estoque ===
+new Chart(document.getElementById('chartSaude'), {
+    type: 'doughnut',
+    data: {
+        labels: ['OK (>10)', 'Baixo (1-10)', 'Zerado (0)'],
+        datasets: [{
+            data: [{{ saude_ok }}, {{ saude_baixo }}, {{ saude_zerado }}],
+            backgroundColor: ['rgba(45,125,90,0.8)', 'rgba(184,134,11,0.8)', 'rgba(188,0,45,0.8)'],
+            borderColor: ['#2d7d5a', '#b8860b', '#BC002D'],
+            borderWidth: 1,
+            hoverOffset: 10
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', color: '#5c5550', font: { size: 11 } }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(245,240,235,0.98)',
+                titleColor: '#2c2c2c',
+                bodyColor: '#5c5550',
+                borderColor: '#e8e0d8',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 6,
+                callbacks: {
+                    label: function(ctx) {
+                        var total = {{ saude_ok + saude_baixo + saude_zerado }};
+                        var pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                        return ' ' + ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                    }
+                }
+            }
+        },
+        animation: {
+            animateRotate: true,
+            duration: 1200,
+            easing: 'easeOutQuart'
+        }
+    }
+});
+
+// === LINE: Vendas Diárias ===
+var vendasLabels = {{ vendas_labels | tojson }};
+var vendasData = {{ vendas_data | tojson }};
+new Chart(document.getElementById('chartVendas'), {
+    type: 'line',
+    data: {
+        labels: vendasLabels.map(function(d) { return d.split('-').reverse().slice(0,2).join('/'); }),
+        datasets: [{
+            label: 'Vendas (R$)',
+            data: vendasData,
+            borderColor: '#BC002D',
+            backgroundColor: function(ctx) {
+                var g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260);
+                g.addColorStop(0, 'rgba(188,0,45,0.12)');
+                g.addColorStop(1, 'rgba(188,0,45,0.01)');
+                return g;
+            },
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#BC002D',
+            pointBorderColor: '#f5f0eb',
+            pointBorderWidth: 1.5,
+            pointRadius: 3,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: '#BC002D',
+            pointHoverBorderColor: '#f5f0eb',
+            pointHoverBorderWidth: 2,
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(245,240,235,0.98)',
+                titleColor: '#2c2c2c',
+                bodyColor: '#5c5550',
+                borderColor: '#e8e0d8',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 6,
+                callbacks: {
+                    label: function(ctx) {
+                        return ' R$ ' + ctx.parsed.y.toFixed(2).replace('.', ',');
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(232,224,216,0.5)' },
+                ticks: { color: '#8a7f7a', font: { size: 11 } }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { color: '#8a7f7a', font: { size: 10 } }
+            }
+        },
+        animation: {
+            duration: 1800,
+            easing: 'easeOutQuart'
+        },
+        interaction: {
+            mode: 'index',
+            intersect: false
+        }
+    }
+});
+
+// === BAR: Produtos Mais Vendidos ===
+{% if top_prod_labels|length > 0 %}
+var topLabels = {{ top_prod_labels | tojson }};
+var topData = {{ top_prod_data | tojson }};
+var topValores = {{ top_prod_valores | tojson }};
+var barColors = topLabels.map(function(_, i) { return ['#BC002D', '#2c6b8a', '#2d7d5a', '#b8860b', '#8a7f7a'][i % 5]; });
+
+new Chart(document.getElementById('chartTopProdutos'), {
+    type: 'bar',
+    data: {
+        labels: topLabels,
+        datasets: [{
+            label: 'Qtd Vendida',
+            data: topData,
+            backgroundColor: barColors.map(function(c) { return c + '99'; }),
+            borderColor: barColors,
+            borderWidth: 1.5,
+            borderRadius: 3,
+            borderSkipped: false
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(245,240,235,0.98)',
+                titleColor: '#2c2c2c',
+                bodyColor: '#5c5550',
+                borderColor: '#e8e0d8',
+                borderWidth: 1,
+                padding: 12,
+                cornerRadius: 6,
+                callbacks: {
+                    label: function(ctx) {
+                        var val = topValores[ctx.dataIndex];
+                        return ' ' + ctx.parsed.x + ' unidades (R$ ' + val.toFixed(2).replace('.', ',') + ')';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                grid: { color: 'rgba(232,224,216,0.5)' },
+                ticks: { color: '#8a7f7a', font: { size: 10 } }
+            },
+            y: {
+                grid: { display: false },
+                ticks: { color: '#5c5550', font: { size: 11 } }
+            }
+        },
+        animation: {
+            duration: 1200,
+            easing: 'easeOutQuart'
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

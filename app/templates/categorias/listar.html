@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block titulo %}Categorias{% endblock %}
+{% block page_title %}Categorias{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('categorias.novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Nova Categoria
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="table-container" style="border: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Descrição</th>
+                    <th>Produtos</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cat in categorias %}
+                <tr>
+                    <td style="color: var(--text-primary); font-weight: 500;">{{ cat.nome }}</td>
+                    <td>{{ cat.descricao or '-' }}</td>
+                    <td><span class="badge bg-primary">{{ cat.produtos.count() }}</span></td>
+                    <td class="text-end">
+                        <a href="{{ url_for('categorias.editar', id=cat.id) }}" class="btn btn-outline-primary btn-sm btn-icon">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="{{ url_for('categorias.excluir', id=cat.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Excluir categoria {{ cat.nome }}?')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                            <path d="M12 52V16l20-8 20 8v36" stroke="#2c2c2c" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                            <path d="M12 16l20 8 20-8" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                            <path d="M32 24v28" stroke="#2c2c2c" stroke-width="2"/>
+                            <path d="M12 52h40" stroke="#2c2c2c" stroke-width="2"/>
+                        </svg>
+                        <p>Nenhuma categoria cadastrada</p>
+                        <a href="{{ url_for('categorias.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeira</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

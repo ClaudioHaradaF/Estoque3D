@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% block titulo %}{% if produto %}Editar{% else %}Novo{% endif %} Produto{% endblock %}
+{% block page_title %}{% if produto %}Editar Produto{% else %}Novo Produto{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="glass-card">
+            <div class="card-header">
+                <h5>
+                    {% if produto %}
+                        <i class="bi bi-pencil"></i> Editar Produto
+                    {% else %}
+                        <i class="bi bi-plus-lg"></i> Novo Produto
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="nome" class="form-label">Nome *</label>
+                            <input type="text" class="form-control" id="nome" name="nome"
+                                   value="{{ produto.nome if produto else '' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="categoria_id" class="form-label">Categoria</label>
+                            <select class="form-select" id="categoria_id" name="categoria_id">
+                                <option value="">Sem categoria</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.id }}" {% if produto and produto.categoria_id == cat.id %}selected{% endif %}>
+                                    {{ cat.nome }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="preco_venda" class="form-label">Preço de Venda (R$) *</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="preco_venda" name="preco_venda"
+                                   value="{{ produto.preco_venda if produto else '0' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="peso" class="form-label">Peso (g)</label>
+                            <input type="number" step="0.1" min="0" class="form-control" id="peso" name="peso"
+                                   value="{{ produto.peso if produto else '' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="qtd_estoque" class="form-label">Quantidade em Estoque</label>
+                            <input type="number" min="0" class="form-control" id="qtd_estoque" name="qtd_estoque"
+                                   value="{{ produto.qtd_estoque if produto else '0' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="descricao" name="descricao" rows="3">{{ produto.descricao if produto else '' }}</textarea>
+                    </div>
+
+                    <div class="glass-card" style="margin-bottom: 20px; border-color: rgba(124,58,237,0.2);">
+                        <div class="card-header">
+                            <h5><i class="bi bi-calculator"></i> Custos de Produção (por lote)</h5>
+                        </div>
+                        <div class="card-body">
+                            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+                                Preencha os custos de produção para calcular automaticamente o custo unitário do produto.
+                            </p>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="qtd_por_lote" class="form-label">Qtd. produzida por lote</label>
+                                    <input type="number" min="1" class="form-control" id="qtd_por_lote" name="qtd_por_lote"
+                                           value="{{ produto.qtd_por_lote if produto else '1' }}"
+                                           oninput="calcularCustos()">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="tempo_impressao" class="form-label">Tempo de impressão (horas)</label>
+                                    <input type="number" step="0.1" min="0" class="form-control" id="tempo_impressao" name="tempo_impressao"
+                                           value="{{ produto.tempo_impressao if produto else '0' }}"
+                                           oninput="calcularCustos()">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="custo_material_lote" class="form-label">Material (filamento/resina) R$</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="custo_material_lote" name="custo_material_lote"
+                                           value="{{ produto.custo_material_lote if produto else '0' }}"
+                                           oninput="calcularCustos()">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="custo_maquina_hora" class="form-label">Máquina (R$/hora)</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="custo_maquina_hora" name="custo_maquina_hora"
+                                           value="{{ produto.custo_maquina_hora if produto else '1.50' }}"
+                                           oninput="calcularCustos()">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="custo_energia_hora" class="form-label">Energia (R$/hora)</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="custo_energia_hora" name="custo_energia_hora"
+                                           value="{{ produto.custo_energia_hora if produto else '0.75' }}"
+                                           oninput="calcularCustos()">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="custo_mao_obra_hora" class="form-label">Mão de obra (R$/hora)</label>
+                                    <input type="number" step="0.01" min="0" class="form-control" id="custo_mao_obra_hora" name="custo_mao_obra_hora"
+                                           value="{{ produto.custo_mao_obra_hora if produto else '0' }}"
+                                           oninput="calcularCustos()">
+                                </div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); border-radius: var(--radius-md); padding: 16px; margin-top: 8px;">
+                                <div class="row text-center">
+                                    <div class="col-md-3 mb-2">
+                                        <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Custo Operação (lote)</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="previewCustoOperacao">R$ 0,00</div>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Custo Insumos (unidade)</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="previewCustoInsumos">R$ 0,00</div>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Custo Unitário Total</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #a78bfa;" id="previewCustoUnitario">R$ 0,00</div>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Preço Sugerido (50%)</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #34d399;" id="previewPrecoSugerido">R$ 0,00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="imagem" class="form-label">Imagem</label>
+                        <input type="file" class="form-control" id="imagem" name="imagem" accept="image/*">
+                        {% if produto and produto.imagem %}
+                        <div class="mt-2">
+                            <img src="{{ url_for('static', filename='uploads/' + produto.imagem) }}"
+                                 class="img-thumbnail" style="max-height: 100px;">
+                            <small style="color: var(--text-muted); margin-left: 8px;">{{ produto.imagem }}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <hr style="border-color: var(--glass-border);">
+                    <h5 style="font-weight: 700; margin-bottom: 4px;"><i class="bi bi-puzzle" style="color: #a78bfa;"></i> Insumos Vinculados</h5>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Selecione os insumos que compõem este produto e a quantidade usada em cada um.</p>
+
+                    <div class="table-container" style="margin-bottom: 20px;">
+                        <table id="tabelaInsumos">
+                            <thead>
+                                <tr>
+                                    <th style="width:40%">Insumo</th>
+                                    <th style="width:20%">Qtd. Usada</th>
+                                    <th style="width:20%">Custo Unit.</th>
+                                    <th style="width:20%">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set insumos_vinculados = produto.insumos.all() if produto else [] %}
+                                {% for ins in insumos %}
+                                {% set pi = namespace(qtd=0) %}
+                                {% if produto %}
+                                    {% for pi_obj in insumos_vinculados if pi_obj.insumo_id == ins.id %}
+                                        {% set pi.qtd = pi_obj.qtd_usada %}
+                                    {% endfor %}
+                                {% endif %}
+                                <tr class="insumo-row {% if not pi.qtd %}d-none d-md-table-row{% endif %}">
+                                    <td>
+                                        <div class="form-check" style="margin: 0;">
+                                            <input class="form-check-input insumo-check" type="checkbox"
+                                                   name="insumo_id" value="{{ ins.id }}"
+                                                   id="ins_{{ ins.id }}"
+                                                   {% if pi.qtd > 0 %}checked{% endif %}
+                                                   style="background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.3);">
+                                            <label class="form-check-label" for="ins_{{ ins.id }}" style="color: var(--text-primary);">
+                                                {{ ins.nome }}
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" min="0"
+                                               class="form-control form-control-sm insumo-qtd"
+                                               name="insumo_qtd" value="{{ pi.qtd }}"
+                                               style="max-width: 100px;">
+                                    </td>
+                                    <td style="color: var(--text-secondary);">
+                                        R$ {{ "%.2f"|format(ins.preco_custo)|replace('.',',') }}
+                                    </td>
+                                    <td class="insumo-subtotal" style="color: var(--text-primary); font-weight: 500;">
+                                        R$ {{ "%.2f"|format(ins.preco_custo * pi.qtd)|replace('.',',') }}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="empty-state" style="padding: 24px !important;">
+                                        Nenhum insumo cadastrado.
+                                        <a href="{{ url_for('insumos.novo') }}">Cadastrar insumos</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" style="text-align: right; font-weight: 700; color: var(--text-primary);">Custo Total de Produção:</td>
+                                    <td style="text-align: center; font-weight: 700; color: #a78bfa; font-size: 16px;" id="custoTotal">
+                                        R$ {{ "%.2f"|format(produto.custo_producao if produto else 0)|replace('.',',') }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('produtos.listar') }}" class="btn btn-outline-secondary">Voltar</a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            {% if produto %}Atualizar{% else %}Cadastrar{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmt(v) { return 'R$ ' + v.toFixed(2).replace('.', ','); }
+
+function calcularCustos() {
+    const qtdLote = parseFloat(document.getElementById('qtd_por_lote').value) || 1;
+    const tempo = parseFloat(document.getElementById('tempo_impressao').value) || 0;
+    const maq = parseFloat(document.getElementById('custo_maquina_hora').value) || 0;
+    const eng = parseFloat(document.getElementById('custo_energia_hora').value) || 0;
+    const mo = parseFloat(document.getElementById('custo_mao_obra_hora').value) || 0;
+    const mat = parseFloat(document.getElementById('custo_material_lote').value) || 0;
+
+    let custoInsumos = 0;
+    document.querySelectorAll('.insumo-check:checked').forEach(function(cb) {
+        const row = cb.closest('tr');
+        const qtdInput = row.querySelector('.insumo-qtd');
+        const qtd = parseFloat(qtdInput.value) || 0;
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 3) {
+            const txt = cells[2].textContent.trim();
+            const preco = parseFloat(txt.replace('R$', '').replace(',', '.').trim()) || 0;
+            custoInsumos += preco * qtd;
+        }
+    });
+
+    const custoOperacao = (maq + eng + mo) * tempo;
+    const custoLote = custoOperacao + mat;
+    const custoUnitSemInsumos = qtdLote > 0 ? custoLote / qtdLote : custoLote;
+    const custoUnitTotal = custoUnitSemInsumos + custoInsumos;
+
+    document.getElementById('previewCustoOperacao').textContent = fmt(custoOperacao);
+    document.getElementById('previewCustoInsumos').textContent = fmt(custoInsumos);
+    document.getElementById('previewCustoUnitario').textContent = fmt(custoUnitTotal);
+    document.getElementById('previewPrecoSugerido').textContent = fmt(custoUnitTotal * 2);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const checks = document.querySelectorAll('.insumo-check');
+    const qtds = document.querySelectorAll('.insumo-qtd');
+
+    function recalcular() {
+        let total = 0;
+        checks.forEach(function(cb, i) {
+            const row = cb.closest('tr');
+            const qtd = parseFloat(qtds[i].value) || 0;
+            if (cb.checked && qtd > 0) {
+                row.classList.remove('d-none');
+            }
+        });
+        calcularCustos();
+    }
+
+    checks.forEach(function(cb, i) {
+        cb.addEventListener('change', function() {
+            const row = this.closest('tr');
+            if (this.checked) {
+                row.classList.remove('d-none');
+                if (!qtds[i].value || parseFloat(qtds[i].value) <= 0) {
+                    qtds[i].value = 1;
+                }
+            } else {
+                qtds[i].value = 0;
+            }
+            recalcular();
+        });
+        qtds[i].addEventListener('input', recalcular);
+    });
+
+    recalcular();
+    calcularCustos();
+});
+</script>
+{% endblock %}
