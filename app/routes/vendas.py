@@ -75,9 +75,10 @@ def nova():
         flash('Venda registrada com sucesso!', 'success')
         return redirect(url_for('vendas.detalhes', id=venda.id))
 
-    produtos = Produto.query.filter(
+    produtos_query = Produto.query.filter(
         Produto.ativo == True, Produto.qtd_estoque > 0
     ).order_by(Produto.nome).all()
+    produtos = [{'id': p.id, 'nome': p.nome, 'preco_venda': p.preco_venda, 'custo_producao': p.custo_producao, 'qtd_estoque': p.qtd_estoque} for p in produtos_query]
     return render_template('vendas/nova.html', produtos=produtos, hoje=date.today())
 
 

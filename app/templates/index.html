@@ -23,25 +23,35 @@
     <div class="kpi-card animate-on-scroll delay-1">
         <div class="kpi-label">Produtos</div>
         <div class="kpi-value" data-count="{{ total_produtos }}">{{ total_produtos }}</div>
+        <div class="kpi-sparkline" data-values="{{ spark_produtos }}"></div>
     </div>
     <div class="kpi-card animate-on-scroll delay-2">
-        <div class="kpi-label">Insumos</div>
-        <div class="kpi-value" data-count="{{ total_insumos }}">{{ total_insumos }}</div>
+        <div class="kpi-label">Total de Peças</div>
+        <div class="kpi-value" data-count="{{ total_pecas }}">{{ total_pecas }}</div>
+        <div class="kpi-sparkline" data-values="{{ spark_pecas }}"></div>
     </div>
     <div class="kpi-card animate-on-scroll delay-3">
-        <div class="kpi-label">Vendas (período)</div>
-        <div class="kpi-value" data-count="{{ total_vendas }}">{{ total_vendas }}</div>
+        <div class="kpi-label">Insumos</div>
+        <div class="kpi-value" data-count="{{ total_insumos }}">{{ total_insumos }}</div>
+        <div class="kpi-sparkline" data-values="{{ spark_insumos }}"></div>
     </div>
     <div class="kpi-card animate-on-scroll delay-4">
-        <div class="kpi-label">Faturamento</div>
-        <div class="kpi-value" data-count="{{ valor_periodo }}" data-money="true">R$ {{ format_br(valor_periodo) }}</div>
-        <div class="kpi-sub">Lucro: R$ {{ format_br(lucro_periodo) }}</div>
+        <div class="kpi-label">Vendas (período)</div>
+        <div class="kpi-value" data-count="{{ total_vendas }}">{{ total_vendas }}</div>
+        <div class="kpi-sparkline" data-values="{{ spark_vendas }}"></div>
     </div>
     <div class="kpi-card animate-on-scroll delay-5">
-        <div class="kpi-label">Valor em Estoque</div>
-        <div class="kpi-value" data-count="{{ valor_estoque }}" data-money="true">R$ {{ format_br(valor_estoque) }}</div>
+        <div class="kpi-label">Faturamento</div>
+        <div class="kpi-value" data-count="{{ valor_periodo }}" data-money="true">R$ {{ format_br(valor_periodo) }}</div>
+        <div class="kpi-sparkline" data-values="{{ spark_faturamento }}"></div>
+        <div class="kpi-sub">Lucro: R$ {{ format_br(lucro_periodo) }}</div>
     </div>
     <div class="kpi-card animate-on-scroll delay-6">
+        <div class="kpi-label">Valor em Estoque</div>
+        <div class="kpi-value" data-count="{{ valor_estoque }}" data-money="true">R$ {{ format_br(valor_estoque) }}</div>
+        <div class="kpi-sparkline" data-values="{{ spark_valor_estoque }}"></div>
+    </div>
+    <div class="kpi-card animate-on-scroll delay-7">
         <div class="kpi-label">Saúde</div>
         <div class="kpi-value" style="font-size: 18px;">
             <span class="stock-health-dots">
@@ -50,6 +60,7 @@
                 <span class="dot dot-danger">● {{ saude_zerado }}</span>
             </span>
         </div>
+        <div class="kpi-sparkline" data-values="{{ spark_saude }}"></div>
     </div>
 </div>
 

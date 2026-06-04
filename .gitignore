@@ -5,3 +5,4 @@ instance/
 .env
 ngrok_token.txt
 app/static/uploads/*
+app/config/google-creds.json

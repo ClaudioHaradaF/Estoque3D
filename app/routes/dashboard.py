@@ -1,4 +1,4 @@
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 from sqlalchemy import func
 from flask import Blueprint, render_template, request
 from app.extensions import db
@@ -25,6 +25,9 @@ def index():
         'data_ini', (hoje - timedelta(days=30)).isoformat()), '%Y-%m-%d').date()
 
     total_produtos = Produto.query.filter_by(ativo=True).count()
+    total_pecas = db.session.query(
+        func.sum(Produto.qtd_estoque)
+    ).filter(Produto.ativo == True).scalar() or 0
     total_insumos = Insumo.query.count()
     total_vendas = Venda.query.filter(
         Venda.data_venda >= ini, Venda.data_venda <= fim
@@ -38,7 +41,7 @@ def index():
 
     # Valor total em estoque (custo_producao * qtd_estoque)
     valor_estoque = db.session.query(
-        func.sum(Produto.custo_producao * Produto.qtd_estoque)
+        func.sum(Produto.preco_venda * Produto.qtd_estoque)
     ).filter(Produto.ativo == True).scalar() or 0
 
     # Saúde do estoque
@@ -92,14 +95,51 @@ def index():
     vendas_labels = sorted(vendas_diarias.keys())
     vendas_data = [vendas_diarias[k] for k in vendas_labels]
 
+    # ===== Sparkline data (last 7 days) =====
+    hoje_dt = date.today()
+    spark_dates = [(hoje_dt - timedelta(days=i)) for i in range(6, -1, -1)]
+
+    spark_vendas_list = []
+    spark_faturamento_list = []
+    for d in spark_dates:
+        day_vendas = Venda.query.filter(Venda.data_venda == d).all()
+        spark_vendas_list.append(len(day_vendas))
+        spark_faturamento_list.append(round(sum(v.valor_total for v in day_vendas), 2))
+
+    spark_vendas = ','.join(str(x) for x in spark_vendas_list)
+    spark_faturamento = ','.join(str(x) for x in spark_faturamento_list)
+
+    spark_produtos_list = []
+    spark_pecas_list = []
+    spark_insumos_list = []
+    for d in spark_dates:
+        end_dt = datetime.combine(d, datetime.max.time()).replace(tzinfo=timezone.utc)
+        spark_produtos_list.append(Produto.query.filter(
+            Produto.ativo == True, Produto.created_at <= end_dt).count())
+        pecas_qtd = db.session.query(func.sum(Produto.qtd_estoque)).filter(
+            Produto.ativo == True, Produto.created_at <= end_dt).scalar() or 0
+        spark_pecas_list.append(pecas_qtd)
+        spark_insumos_list.append(Insumo.query.filter(
+            Insumo.created_at <= end_dt).count())
+
+    spark_produtos = ','.join(str(x) for x in spark_produtos_list)
+    spark_pecas = ','.join(str(x) for x in spark_pecas_list)
+    spark_insumos = ','.join(str(x) for x in spark_insumos_list)
+
+    ve_rounded = round(valor_estoque, 2)
+    spark_valor_estoque = ','.join(str(ve_rounded) for _ in spark_dates)
+    spark_saude = ','.join(str(ok_count) for _ in spark_dates)
+
     return render_template(
         'index.html',
         total_produtos=total_produtos,
+        total_pecas=total_pecas,
+        spark_pecas=spark_pecas,
         total_insumos=total_insumos,
         total_vendas=total_vendas,
         valor_periodo=round(valor_periodo, 2),
         lucro_periodo=round(lucro_periodo, 2),
-        valor_estoque=round(valor_estoque, 2),
+        valor_estoque=ve_rounded,
         produtos_baixo_estoque=produtos_baixo_estoque,
         data_ini=ini,
         data_fim=fim,
@@ -115,5 +155,11 @@ def index():
         saude_ok=ok_count,
         saude_baixo=baixo_count,
         saude_zerado=zerado_count,
+        spark_produtos=spark_produtos,
+        spark_insumos=spark_insumos,
+        spark_vendas=spark_vendas,
+        spark_faturamento=spark_faturamento,
+        spark_valor_estoque=spark_valor_estoque,
+        spark_saude=spark_saude,
         format_br=format_br,
     )

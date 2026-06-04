@@ -3,6 +3,15 @@
 {% block page_title %}Produtos{% endblock %}
 
 {% block header_actions %}
+<a href="{{ url_for('importacao.importar_gsheets') }}" class="btn btn-outline-primary">
+    <i class="bi bi-cloud-download"></i> Importar do Sheets
+</a>
+<form action="{{ url_for('importacao.exportar_para_gsheets') }}" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-outline-secondary"
+            onclick="return confirm('Exportar todos os produtos para o Google Sheets? Os dados atuais da planilha serão substituídos.')">
+        <i class="bi bi-cloud-upload"></i> Exportar para Sheets
+    </button>
+</form>
 <a href="{{ url_for('produtos.novo') }}" class="btn btn-primary">
     <i class="bi bi-plus-lg"></i> Novo Produto
 </a>
@@ -28,72 +37,63 @@
             </form>
         </div>
     </div>
-    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
-        <table>
-            <thead>
-                <tr>
-                    <th>Produto</th>
-                    <th>Categoria</th>
-                    <th>Preço Venda</th>
-                    <th>Custo</th>
-                    <th>Margem</th>
-                    <th>Estoque</th>
-                    <th class="text-end">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in produtos %}
-                <tr>
-                    <td style="color: var(--text-primary); font-weight: 500;">
-                        <a href="{{ url_for('produtos.detalhes', id=p.id) }}">{{ p.nome }}</a>
-                    </td>
-                    <td>{{ p.categoria_nome }}</td>
-                    <td>R$ {{ "%.2f"|format(p.preco_venda)|replace('.',',') }}</td>
-                    <td style="color: var(--text-muted);">R$ {{ "%.2f"|format(p.custo_producao)|replace('.',',') }}</td>
-                    <td>
-                        {% if p.margem_lucro >= 50 %}
-                        <span class="badge bg-success">{{ p.margem_lucro }}%</span>
-                        {% elif p.margem_lucro >= 20 %}
-                        <span class="badge bg-warning">{{ p.margem_lucro }}%</span>
-                        {% else %}
-                        <span class="badge bg-danger">{{ p.margem_lucro }}%</span>
-                        {% endif %}
-                    </td>
-                    <td>
+    <div style="padding: 0 16px 16px;">
+        {% if produtos %}
+        <div class="prod-grid">
+            {% for p in produtos %}
+            <div class="prod-card">
+                <a href="{{ url_for('produtos.detalhes', id=p.id) }}" class="prod-card-img">
+                    {% if p.imagem %}
+                    <img src="{{ url_for('static', filename='uploads/' + p.imagem) }}"
+                         alt="{{ p.nome }}" loading="lazy">
+                    {% else %}
+                    <span class="prod-card-placeholder"><i class="bi bi-image"></i></span>
+                    {% endif %}
+                </a>
+                <div class="prod-card-body">
+                    <a href="{{ url_for('produtos.detalhes', id=p.id) }}" class="prod-card-name">{{ p.nome }}</a>
+                    <div class="prod-card-cat">{{ p.categoria_nome }}</div>
+                    {% if p.descricao %}
+                    <div class="prod-card-desc">{{ p.descricao }}</div>
+                    {% endif %}
+                    <div class="prod-card-meta">
+                        <span class="prod-card-price">R$ {{ "%.2f"|format(p.preco_venda)|replace('.',',') }}</span>
                         <span class="badge {% if p.qtd_estoque <= 5 %}bg-danger bg-pulse{% elif p.qtd_estoque <= 10 %}bg-warning{% else %}bg-success{% endif %}">
-                            {{ p.qtd_estoque }}
+                            {{ p.qtd_estoque }} estoque
                         </span>
-                    </td>
-                    <td class="text-end">
-                        <a href="{{ url_for('produtos.detalhes', id=p.id) }}" class="btn btn-outline-info btn-sm btn-icon">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="{{ url_for('produtos.editar', id=p.id) }}" class="btn btn-outline-primary btn-sm btn-icon">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <form action="{{ url_for('produtos.excluir', id=p.id) }}" method="POST" class="d-inline"
-                              onsubmit="return confirm('Excluir produto {{ p.nome }}?')">
-                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7" class="empty-state">
-                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
-                            <rect x="12" y="20" width="40" height="30" rx="4" stroke="#2c2c2c" stroke-width="2" fill="none"/>
-                            <path d="M12 28h40" stroke="#2c2c2c" stroke-width="2"/>
-                            <rect x="24" y="32" width="16" height="10" rx="2" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
-                        </svg>
-                        <p>Nenhum produto encontrado</p>
-                        <a href="{{ url_for('produtos.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeiro</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        <span class="badge {% if p.margem_lucro >= 50 %}bg-success{% elif p.margem_lucro >= 20 %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ p.margem_lucro }}%
+                        </span>
+                    </div>
+                </div>
+                <div class="prod-card-actions">
+                    <a href="{{ url_for('produtos.detalhes', id=p.id) }}" class="btn btn-outline-info btn-sm btn-icon" title="Detalhes">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{{ url_for('produtos.editar', id=p.id) }}" class="btn btn-outline-primary btn-sm btn-icon" title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <form action="{{ url_for('produtos.excluir', id=p.id) }}" method="POST" class="d-inline"
+                          onsubmit="return confirm('Excluir produto {{ p.nome }}?')">
+                        <button type="submit" class="btn btn-outline-danger btn-sm btn-icon" title="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding: 48px 16px;">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                <rect x="12" y="20" width="40" height="30" rx="4" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                <path d="M12 28h40" stroke="#2c2c2c" stroke-width="2"/>
+                <rect x="24" y="32" width="16" height="10" rx="2" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
+            </svg>
+            <p>Nenhum produto encontrado</p>
+            <a href="{{ url_for('produtos.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeiro</a>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

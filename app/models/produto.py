@@ -19,6 +19,8 @@ class Produto(db.Model):
     custo_mao_obra_hora = db.Column(db.Float, nullable=False, default=0)
     custo_material_lote = db.Column(db.Float, nullable=False, default=0)
     qtd_por_lote = db.Column(db.Integer, nullable=False, default=1)
+    ordem = db.Column(db.Integer, default=0)
+    tamanho = db.Column(db.String(20), nullable=True)
     imagem = db.Column(db.String(200), nullable=True)
     ativo = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

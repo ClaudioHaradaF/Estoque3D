@@ -219,35 +219,6 @@
         el.addEventListener('mouseleave', function() { cursorDot.classList.remove('hovering'); });
     });
 
-    // ===== MAGNETIC BUTTONS =====
-    document.querySelectorAll('.btn').forEach(function(btn) {
-        btn.addEventListener('mousemove', function(e) {
-            var rect = this.getBoundingClientRect();
-            var x = e.clientX - rect.left - rect.width / 2;
-            var y = e.clientY - rect.top - rect.height / 2;
-            var strength = Math.min(Math.abs(x), Math.abs(y)) * 0.08;
-            this.style.transform = 'translate(' + (x * 0.12) + 'px, ' + (y * 0.12) + 'px)';
-        });
-        btn.addEventListener('mouseleave', function() {
-            this.style.transform = 'translate(0, 0)';
-        });
-    });
-
-    // ===== 3D TILT CARDS =====
-    document.querySelectorAll('.glass-card').forEach(function(card) {
-        card.addEventListener('mousemove', function(e) {
-            var rect = this.getBoundingClientRect();
-            var x = (e.clientX - rect.left) / rect.width - 0.5;
-            var y = (e.clientY - rect.top) / rect.height - 0.5;
-            this.style.transform = 'perspective(800px) rotateY(' + (x * 4) + 'deg) rotateX(' + (-y * 4) + 'deg) translateY(-2px)';
-            this.style.boxShadow = '0 8px 32px rgba(0,0,0,0.08)';
-        });
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'perspective(800px) rotateY(0deg) rotateX(0deg) translateY(0px)';
-            this.style.boxShadow = '';
-        });
-    });
-
     // ===== HAMBURGER MOBILE =====
     var hamburger = document.querySelector('.hamburger');
     var navLinks = document.querySelector('.nav-links');
@@ -319,6 +290,74 @@
     document.querySelectorAll('img[loading="lazy"]').forEach(function(img) {
         if (img.complete) img.classList.add('loaded');
         else img.addEventListener('load', function() { this.classList.add('loaded'); });
+    });
+
+    // ===== COLOR THEME ENGINE =====
+    function setAccentColor(color) {
+        document.documentElement.setAttribute('data-accent', color);
+        localStorage.setItem('accentColor', color);
+        document.querySelectorAll('.theme-swatches .swatch').forEach(function(s) {
+            s.classList.toggle('active', s.getAttribute('data-color') === color);
+        });
+        // Update Chart.js tooltip border to match accent
+        if (typeof Chart !== 'undefined') {
+            var accentMap = { vermelhão: '#BC002D', indigo: '#2c3e6b', dourado: '#b8860b', verde: '#2d7d5a' };
+            Chart.defaults.plugins.tooltip.borderColor = accentMap[color] || '#BC002D';
+        }
+    }
+
+    var savedAccent = localStorage.getItem('accentColor') || 'vermelhão';
+    setAccentColor(savedAccent);
+
+    document.addEventListener('click', function(e) {
+        var swatch = e.target.closest('.theme-swatches .swatch');
+        if (swatch) setAccentColor(swatch.getAttribute('data-color'));
+    });
+
+    // ===== ANIMATED TYPOGRAPHY (title reveal) =====
+    document.querySelectorAll('.text-reveal').forEach(function(el) {
+        var text = el.textContent.trim();
+        el.innerHTML = '';
+        for (var i = 0; i < text.length; i++) {
+            var span = document.createElement('span');
+            span.className = 'reveal-inner';
+            span.textContent = text[i] === ' ' ? '\u00a0' : text[i];
+            el.appendChild(span);
+        }
+    });
+
+    // ===== LOADING SCREEN =====
+    var loadingScreen = document.querySelector('.loading-screen');
+    if (loadingScreen) {
+        function hideLoading() {
+            loadingScreen.classList.add('loaded');
+            setTimeout(function() { loadingScreen.style.display = 'none'; }, 700);
+        }
+        if (document.readyState === 'complete') {
+            setTimeout(hideLoading, 300);
+        } else {
+            window.addEventListener('load', function() { setTimeout(hideLoading, 400); });
+            // Fallback: hide after 3s even if something is slow
+            setTimeout(hideLoading, 3000);
+        }
+    }
+
+    // ===== KPI SPARKLINES =====
+    document.querySelectorAll('.kpi-sparkline[data-values]').forEach(function(el) {
+        var values = el.getAttribute('data-values').split(',').map(Number);
+        if (values.length < 2) return;
+        var w = 80, h = 28;
+        var max = Math.max.apply(null, values);
+        var min = Math.min.apply(null, values);
+        var range = max - min || 1;
+        var pad = 2;
+        var points = values.map(function(v, i) {
+            var x = pad + (i / (values.length - 1)) * (w - pad * 2);
+            var y = h - pad - ((v - min) / range) * (h - pad * 2);
+            return x + ',' + y;
+        });
+        var d = 'M' + points.join(' L');
+        el.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg"><path d="' + d + '"/></svg>';
     });
 
 })();
