@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+instance/
+*.db
+.env
+ngrok_token.txt
+app/static/uploads/*
+app/config/google-creds.json

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block titulo %}Insumos{% endblock %}
+{% block page_title %}Insumos{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('insumos.novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Novo Insumo
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="card-body">
+        <div class="toolbar">
+            <form class="search-box" method="GET">
+                <input type="text" class="form-control" name="busca" placeholder="Buscar insumo..."
+                       value="{{ busca }}">
+                <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
+                {% if busca %}
+                <a href="{{ url_for('insumos.listar') }}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Custo</th>
+                    <th>Estoque</th>
+                    <th>Un.</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ins in insumos %}
+                <tr>
+                    <td style="color: var(--text-primary); font-weight: 500;">{{ ins.nome }}</td>
+                    <td>R$ {{ "%.2f"|format(ins.preco_custo)|replace('.',',') }}</td>
+                    <td>
+                        <span class="badge {% if ins.qtd_estoque <= 0 %}bg-danger{% else %}bg-success{% endif %}">
+                            {{ ins.qtd_estoque }}
+                        </span>
+                    </td>
+                    <td>{{ ins.unidade }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('insumos.editar', id=ins.id) }}" class="btn btn-outline-primary btn-sm btn-icon">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="{{ url_for('insumos.excluir', id=ins.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Excluir insumo {{ ins.nome }}?')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                            <circle cx="32" cy="32" r="18" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                            <path d="M32 22v10l6 6" stroke="#2c2c2c" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M18 14l8 8m20-8l-8 8" stroke="#2c2c2c" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <p>Nenhum insumo encontrado</p>
+                        <a href="{{ url_for('insumos.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeiro</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

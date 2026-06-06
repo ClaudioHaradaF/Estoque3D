@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Venda Rápida — Estoque3D</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg, #f5f0eb);
+            display: flex; flex-direction: column;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .top-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: #BC002D; color: #fff;
+            flex-shrink: 0;
+        }
+        .top-bar h1 { font-size: 18px; font-weight: 700; margin: 0; }
+        .top-bar .btns { display: flex; gap: 6px; }
+        .top-bar .btns a, .top-bar .btns button {
+            background: rgba(255,255,255,0.2); border: none; color: #fff;
+            padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+            text-decoration: none;
+        }
+        .search-bar {
+            padding: 8px 12px; flex-shrink: 0;
+        }
+        .search-bar input {
+            width: 100%; padding: 10px 14px; border: 1px solid var(--glass-border, #ddd);
+            border-radius: 10px; font-size: 16px; background: var(--glass-bg, #fff);
+            outline: none; box-sizing: border-box;
+        }
+        .prod-grid {
+            flex: 1; overflow-y: auto; padding: 6px 10px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+            align-content: start;
+        }
+        .prod-item {
+            background: var(--glass-bg, #fff); border-radius: 10px;
+            padding: 10px 8px; text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            cursor: pointer; transition: transform 0.1s;
+            display: flex; flex-direction: column; justify-content: center;
+            min-height: 72px;
+        }
+        .prod-item:active { transform: scale(0.95); }
+        .prod-item .nome { font-size: 12px; font-weight: 600; color: var(--text-primary, #222); line-height: 1.2; }
+        .prod-item .preco { font-size: 15px; font-weight: 700; color: #BC002D; margin-top: 2px; }
+        .prod-item .estoque { font-size: 10px; color: #999; }
+        .prod-item.sem-estoque { opacity: 0.4; }
+        .bottom-bar {
+            flex-shrink: 0; padding: 8px 12px 12px;
+            background: var(--glass-bg, #fff); border-top: 1px solid var(--glass-border, #ddd);
+        }
+        .bottom-bar .resumo {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+        }
+        .bottom-bar .resumo .qtd { font-size: 13px; color: var(--text-muted, #888); }
+        .bottom-bar .resumo .total { font-size: 20px; font-weight: 700; color: #BC002D; }
+        .btn-finalizar {
+            width: 100%; padding: 14px; border: none; border-radius: 10px;
+            font-size: 16px; font-weight: 700; color: #fff;
+            background: #BC002D; cursor: pointer;
+        }
+        .btn-finalizar:disabled { opacity: 0.5; }
+        /* Carrinho sheet */
+        .cart-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            z-index: 999; display: none;
+        }
+        .cart-overlay.open { display: block; }
+        .cart-sheet {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--glass-bg, #fff); border-radius: 16px 16px 0 0;
+            z-index: 1000; transform: translateY(100%); transition: transform 0.3s ease;
+            max-height: 70vh; display: flex; flex-direction: column;
+        }
+        .cart-sheet.open { transform: translateY(0); }
+        .cart-sheet .handle {
+            width: 40px; height: 4px; background: #ddd; border-radius: 2px;
+            margin: 10px auto;
+        }
+        .cart-sheet .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 16px 8px; border-bottom: 1px solid var(--glass-border, #ddd);
+        }
+        .cart-sheet .header h2 { font-size: 16px; margin: 0; }
+        .cart-sheet .header button {
+            background: none; border: none; font-size: 20px; cursor: pointer; color: #999;
+        }
+        .cart-sheet .lista {
+            flex: 1; overflow-y: auto; padding: 8px 16px;
+        }
+        .cart-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 0; border-bottom: 1px solid var(--glass-border, #ddd);
+        }
+        .cart-item .nome { flex: 1; font-size: 13px; font-weight: 500; color: var(--text-primary, #222); }
+        .cart-item .qtd-ctrl {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .cart-item .qtd-ctrl button {
+            width: 28px; height: 28px; border-radius: 50%; border: 1px solid #ddd;
+            background: #fff; font-size: 16px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+        }
+        .cart-item .qtd-ctrl span { font-size: 14px; font-weight: 600; min-width: 20px; text-align: center; }
+        .cart-item .subtotal { font-size: 13px; font-weight: 700; color: #BC002D; min-width: 60px; text-align: right; }
+        .cart-item .remove { color: #999; cursor: pointer; font-size: 16px; padding: 4px; }
+        .cart-footer {
+            padding: 12px 16px 20px; border-top: 1px solid var(--glass-border, #ddd);
+        }
+        .cart-footer label { font-size: 12px; color: var(--text-muted, #888); display: block; margin-bottom: 4px; }
+        .cart-footer input, .cart-footer select {
+            width: 100%; padding: 8px 10px; border: 1px solid var(--glass-border, #ddd);
+            border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 8px;
+        }
+        .pgto-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px;
+        }
+        .pgto-btn {
+            padding: 8px 4px; border: 2px solid var(--glass-border, #ddd); border-radius: 8px;
+            background: #fff; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center;
+            transition: all 0.15s;
+        }
+        .pgto-btn.active { border-color: #BC002D; background: rgba(188,0,45,0.08); color: #BC002D; }
+        .cart-footer .btn-finalizar { margin-top: 4px; }
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #2d7d5a; color: #fff; padding: 10px 20px;
+            border-radius: 8px; font-size: 14px; font-weight: 600; z-index: 2000;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .toast.erro { background: #BC002D; }
+        @media (max-width: 400px) {
+            .prod-grid { grid-template-columns: repeat(2, 1fr); }
+            .pgto-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        .empty-state { text-align: center; padding: 40px 0; color: #ccc; grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <h1>Venda Rápida</h1>
+        <div class="btns">
+            <a href="{{ url_for('vendas.listar') }}">Histórico</a>
+            <a href="{{ url_for('dashboard.index') }}">Sair</a>
+        </div>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="busca" placeholder="Buscar produto..." autocomplete="off">
+    </div>
+
+    <div class="prod-grid" id="prodGrid">
+        {% for p in produtos %}
+        <div class="prod-item {% if p.qtd_estoque == 0 %}sem-estoque{% endif %}"
+             data-id="{{ p.id }}" data-nome="{{ p.nome }}" data-preco="{{ p.preco_venda }}"
+             data-estoque="{{ p.qtd_estoque }}">
+            <div class="nome">{{ p.nome }}</div>
+            <div class="preco">R$ {{ '%.2f'|format(p.preco_venda)|replace('.',',') }}</div>
+            <div class="estoque">{{ p.qtd_estoque }} un</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="bottom-bar">
+        <div class="resumo">
+            <span class="qtd" id="cartQtd">0 itens</span>
+            <span class="total" id="cartTotal">R$ 0,00</span>
+        </div>
+        <button class="btn-finalizar" id="btnAbrirCarrinho" disabled>
+            <i class="bi bi-cart"></i> Ver Carrinho
+        </button>
+    </div>
+
+    <div class="cart-overlay" id="cartOverlay"></div>
+    <div class="cart-sheet" id="cartSheet">
+        <div class="handle"></div>
+        <div class="header">
+            <h2>Carrinho</h2>
+            <button id="btnFecharCarrinho"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="lista" id="cartLista">
+            <div class="empty-state" style="padding:20px 0;">Carrinho vazio</div>
+        </div>
+        <div class="cart-footer">
+            <label>Cliente (opcional)</label>
+            <input type="text" id="inputCliente" placeholder="Nome do cliente">
+            <label>Forma de Pagamento</label>
+            <div class="pgto-grid" id="pgtoGrid">
+                <div class="pgto-btn" data-valor="dinheiro">💰<br>Dinheiro</div>
+                <div class="pgto-btn" data-valor="credito">💳<br>Crédito</div>
+                <div class="pgto-btn" data-valor="debito">💳<br>Débito</div>
+                <div class="pgto-btn" data-valor="pix">📱<br>PIX</div>
+            </div>
+            <button class="btn-finalizar" id="btnFinalizar">
+                <i class="bi bi-check-lg"></i> Finalizar Venda
+            </button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    const produtos = {{ produtos|tojson }};
+    let carrinho = {};  // produto_id -> {nome, preco, qtd}
+    let pgtoSelecionado = '';
+
+    // ---- Grid ----
+    function renderGrid(lista) {
+        const grid = document.getElementById('prodGrid');
+        grid.innerHTML = '';
+        if (lista.length === 0) {
+            grid.innerHTML = '<div class="empty-state"><i class="bi bi-search"></i><p>Nenhum produto encontrado</p></div>';
+            return;
+        }
+        lista.forEach(function(p) {
+            const div = document.createElement('div');
+            div.className = 'prod-item' + (p.qtd_estoque === 0 ? ' sem-estoque' : '');
+            div.dataset.id = p.id;
+            div.dataset.nome = p.nome;
+            div.dataset.preco = p.preco_venda;
+            div.dataset.estoque = p.qtd_estoque;
+            div.innerHTML =
+                '<div class="nome">' + p.nome + '</div>' +
+                '<div class="preco">R$ ' + p.preco_venda.toFixed(2).replace('.',',') + '</div>' +
+                '<div class="estoque">' + p.qtd_estoque + ' un</div>';
+            div.addEventListener('click', function() { adicionarAoCarrinho(p.id, p.nome, p.preco_venda, p.qtd_estoque); });
+            grid.appendChild(div);
+        });
+    }
+
+    document.getElementById('busca').addEventListener('input', function() {
+        const q = this.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const filtrados = produtos.filter(function(p) {
+            return p.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').indexOf(q) !== -1;
+        });
+        renderGrid(filtrados);
+    });
+
+    // ---- Carrinho ----
+    function adicionarAoCarrinho(id, nome, preco, estoque) {
+        if (estoque <= 0) return;
+        if (carrinho[id]) {
+            if (carrinho[id].qtd < estoque) carrinho[id].qtd++;
+        } else {
+            carrinho[id] = { nome: nome, preco: preco, qtd: 1 };
+        }
+        atualizarCarrinho();
+        mostrarToast(nome + ' adicionado', false);
+    }
+
+    function atualizarCarrinho() {
+        const ids = Object.keys(carrinho);
+        const totalItens = ids.reduce(function(s, id) { return s + carrinho[id].qtd; }, 0);
+        const totalValor = ids.reduce(function(s, id) { return s + carrinho[id].preco * carrinho[id].qtd; }, 0);
+
+        document.getElementById('cartQtd').textContent = totalItens + ' itens';
+        document.getElementById('cartTotal').textContent = 'R$ ' + totalValor.toFixed(2).replace('.',',');
+        document.getElementById('btnAbrirCarrinho').disabled = (totalItens === 0);
+
+        renderCartLista();
+    }
+
+    function renderCartLista() {
+        const lista = document.getElementById('cartLista');
+        const ids = Object.keys(carrinho);
+        if (ids.length === 0) {
+            lista.innerHTML = '<div class="empty-state" style="padding:20px 0;">Carrinho vazio</div>';
+            return;
+        }
+        let html = '';
+        ids.forEach(function(id) {
+            const item = carrinho[id];
+            const sub = (item.preco * item.qtd).toFixed(2).replace('.',',');
+            html +=
+                '<div class="cart-item">' +
+                    '<div class="nome">' + item.nome + '</div>' +
+                    '<div class="qtd-ctrl">' +
+                        '<button onclick="alterarQtd(' + id + ',' + (item.qtd - 1) + ')">−</button>' +
+                        '<span>' + item.qtd + '</span>' +
+                        '<button onclick="alterarQtd(' + id + ',' + (item.qtd + 1) + ')">+</button>' +
+                    '</div>' +
+                    '<div class="subtotal">R$ ' + sub + '</div>' +
+                    '<div class="remove" onclick="removerItem(' + id + ')"><i class="bi bi-trash"></i></div>' +
+                '</div>';
+        });
+        lista.innerHTML = html;
+    }
+
+    function alterarQtd(id, novaQtd) {
+        if (novaQtd <= 0) {
+            removerItem(id);
+            return;
+        }
+        const prod = produtos.find(function(p) { return p.id === id; });
+        if (prod && novaQtd > prod.qtd_estoque) {
+            mostrarToast('Estoque máximo: ' + prod.qtd_estoque, true);
+            return;
+        }
+        if (carrinho[id]) {
+            carrinho[id].qtd = novaQtd;
+            atualizarCarrinho();
+        }
+    }
+
+    function removerItem(id) {
+        delete carrinho[id];
+        atualizarCarrinho();
+    }
+
+    // ---- Carrinho sheet ----
+    document.getElementById('btnAbrirCarrinho').addEventListener('click', function() {
+        document.getElementById('cartSheet').classList.add('open');
+        document.getElementById('cartOverlay').classList.add('open');
+    });
+    document.getElementById('btnFecharCarrinho').addEventListener('click', fecharCarrinho);
+    document.getElementById('cartOverlay').addEventListener('click', fecharCarrinho);
+    function fecharCarrinho() {
+        document.getElementById('cartSheet').classList.remove('open');
+        document.getElementById('cartOverlay').classList.remove('open');
+    }
+
+    // ---- Pagamento ----
+    document.querySelectorAll('.pgto-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.pgto-btn').forEach(function(b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            pgtoSelecionado = this.dataset.valor;
+        });
+    });
+
+    // ---- Finalizar ----
+    document.getElementById('btnFinalizar').addEventListener('click', function() {
+        const ids = Object.keys(carrinho);
+        if (ids.length === 0) { mostrarToast('Carrinho vazio', true); return; }
+        if (!pgtoSelecionado) { mostrarToast('Selecione a forma de pagamento', true); return; }
+
+        const itens = ids.map(function(id) {
+            return { id: parseInt(id), qtd: carrinho[id].qtd, preco: carrinho[id].preco };
+        });
+        const cliente = document.getElementById('inputCliente').value.trim();
+
+        this.disabled = true;
+        this.innerHTML = '<i class="bi bi-arrow-repeat"></i> Processando...';
+
+        fetch('{{ url_for("vendas.rapida_finalizar") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itens: itens, cliente: cliente, forma_pagamento: pgtoSelecionado })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.erro) {
+                mostrarToast(data.erro, true);
+                document.getElementById('btnFinalizar').disabled = false;
+                document.getElementById('btnFinalizar').innerHTML = '<i class="bi bi-check-lg"></i> Finalizar Venda';
+            } else {
+                mostrarToast('Venda R$ ' + data.total.toFixed(2).replace('.',',') + ' realizada!', false);
+                carrinho = {};
+                pgtoSelecionado = '';
+                document.querySelectorAll('.pgto-btn').forEach(function(b) { b.classList.remove('active'); });
+                document.getElementById('inputCliente').value = '';
+                atualizarCarrinho();
+                fecharCarrinho();
+                document.getElementById('btnFinalizar').disabled = false;
+                document.getElementById('btnFinalizar').innerHTML = '<i class="bi bi-check-lg"></i> Finalizar Venda';
+                // recarregar grid para refletir estoque
+                setTimeout(function() { location.reload(); }, 1200);
+            }
+        }).catch(function() {
+            mostrarToast('Erro ao finalizar venda', true);
+            document.getElementById('btnFinalizar').disabled = false;
+            document.getElementById('btnFinalizar').innerHTML = '<i class="bi bi-check-lg"></i> Finalizar Venda';
+        });
+    });
+
+    // ---- Toast ----
+    function mostrarToast(msg, erro) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (erro ? ' erro' : '');
+        setTimeout(function() { t.classList.remove('show'); }, 2000);
+    }
+    </script>
+</body>
+</html>

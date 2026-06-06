@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block titulo %}Catálogos{% endblock %}
+{% block page_title %}Catálogos de Produtos{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('catalogos.novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Novo Catálogo
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Descrição</th>
+                    <th class="text-center">Produtos</th>
+                    <th class="text-center">Criado em</th>
+                    <th class="text-center" style="width:120px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in catalogos %}
+                <tr class="table-row-animate">
+                    <td style="font-weight:600;color:var(--text-primary);">
+                        <a href="{{ url_for('catalogos.ver', id=c.id) }}" style="color:inherit;">{{ c.nome }}</a>
+                    </td>
+                    <td style="color:var(--text-muted);">{{ c.descricao or '---' }}</td>
+                    <td class="text-center">{{ c.itens.count() }}</td>
+                    <td class="text-center" style="color:var(--text-muted);">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
+                    <td class="text-center">
+                        <a href="{{ url_for('catalogos.ver', id=c.id) }}" class="btn btn-outline-primary btn-sm btn-icon" title="Visualizar">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{{ url_for('catalogos.editar', id=c.id) }}" class="btn btn-outline-secondary btn-sm btn-icon" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="{{ url_for('catalogos.excluir', id=c.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Excluir catálogo &quot;{{ c.nome }}&quot;?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon" title="Excluir">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <i class="bi bi-book"></i>
+                        <p>Nenhum catálogo criado ainda.</p>
+                        <a href="{{ url_for('catalogos.novo') }}" class="btn btn-primary">Criar Catálogo</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

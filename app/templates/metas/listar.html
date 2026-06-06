@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block titulo %}Metas{% endblock %}
+{% block page_title %}Metas{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('metas.nova') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Nova Meta
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    {% if metas %}
+    <div class="card-body" style="padding-bottom:0;">
+        <div class="row g-3">
+            {% for m in metas %}
+            <div class="col-md-6 col-lg-4">
+                <div class="kpi-card" style="background:var(--glass-bg);border:1px solid var(--glass-border);padding:20px;{% if m.concluida %}opacity:0.6;{% endif %}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                        <div>
+                            <span class="badge" style="background:{% if m.categoria == 'financeiro' %}#2c6b8a{% elif m.categoria == 'investimento' %}#2d7d5a{% elif m.categoria == 'feira' %}#b8860b{% else %}#8a7f7a{% endif %};">
+                                {{ m.categoria }}
+                            </span>
+                            <span class="badge bg-secondary" style="margin-left:4px;">{{ m.tipo }}</span>
+                        </div>
+                        {% if m.atingida and not m.concluida %}
+                        <span class="badge bg-success" style="animation:pulse 1.5s infinite;">Atingida!</span>
+                        {% endif %}
+                    </div>
+
+                    <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">{{ m.descricao }}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+                        {{ m.data_ini.strftime('%d/%m') }} — {{ m.data_fim.strftime('%d/%m/%Y') }}
+                    </div>
+
+                    <div style="margin-bottom:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:13px;">
+                            <span>R$ {{ '%.2f'|format(m.valor_atual)|replace('.',',') }}</span>
+                            <span style="font-weight:600;color:var(--text-primary);">R$ {{ '%.2f'|format(m.valor_meta)|replace('.',',') }}</span>
+                        </div>
+                        <div class="progress" style="height:8px;background:var(--glass-border);margin-top:4px;">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width:{{ m.progresso }}%;background:{% if m.progresso >= 100 %}#2d7d5a{% elif m.progresso >= 50 %}#b8860b{% else %}#BC002D{% endif %};"
+                                 aria-valuenow="{{ m.progresso }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;text-align:right;">{{ m.progresso }}%</div>
+                    </div>
+
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        {% if m.categoria != 'financeiro' and not m.concluida %}
+                        <form action="{{ url_for('metas.atualizar_valor', id=m.id) }}" method="POST" class="d-inline-flex gap-1" style="flex:1;">
+                            <input type="number" step="0.01" class="form-control form-control-sm" name="valor_atual"
+                                   value="{{ m.valor_atual }}" style="width:80px;" placeholder="Valor">
+                            <button type="submit" class="btn btn-outline-primary btn-sm">Atualizar</button>
+                        </form>
+                        {% endif %}
+                        <form action="{{ url_for('metas.alternar', id=m.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm {% if m.concluida %}btn-outline-secondary{% else %}btn-outline-success{% endif %} btn-icon"
+                                    title="{% if m.concluida %}Reativar{% else %}Concluir{% endif %}">
+                                <i class="bi {% if m.concluida %}bi-arrow-counterclockwise{% else %}bi-check-lg{% endif %}"></i>
+                            </button>
+                        </form>
+                        <a href="{{ url_for('metas.editar', id=m.id) }}" class="btn btn-outline-secondary btn-sm btn-icon" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="{{ url_for('metas.excluir', id=m.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Excluir meta?');">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon" title="Excluir">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card-body">
+        <div class="empty-state">
+            <i class="bi bi-bullseye"></i>
+            <p>Nenhuma meta cadastrada.</p>
+            <a href="{{ url_for('metas.nova') }}" class="btn btn-primary">Criar Meta</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

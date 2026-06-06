@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% block titulo %}{% if catalogo %}Editar{% else %}Novo{% endif %} Catálogo{% endblock %}
+{% block page_title %}{% if catalogo %}Editar{% else %}Novo{% endif %} Catálogo{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="glass-card">
+            <div class="card-body">
+                <form method="POST" id="formCatalogo">
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <label for="nome" class="form-label">Nome do Catálogo</label>
+                            <input type="text" class="form-control" id="nome" name="nome"
+                                   value="{{ catalogo.nome if catalogo else '' }}" required
+                                   placeholder="Ex: Catálogo Promocional Junho">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="descricao" class="form-label">Descrição (opcional)</label>
+                        <textarea class="form-control" id="descricao" name="descricao" rows="2"
+                                  placeholder="Breve descrição do catálogo...">{{ catalogo.descricao if catalogo else '' }}</textarea>
+                    </div>
+
+                    <hr style="border-color:var(--glass-border);">
+                    <h5 style="font-weight:700;margin-bottom:16px;">
+                        <i class="bi bi-box" style="color:#a78bfa;"></i> Produtos no Catálogo
+                    </h5>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" id="buscaProduto"
+                                   placeholder="Buscar produto para adicionar...">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-primary w-100" id="btnBuscar">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="resultadoBusca" class="mb-3" style="display:none;">
+                        <select class="form-select" id="selectProduto" size="5" style="min-height:120px;">
+                        </select>
+                        <div class="mt-2 d-flex gap-2">
+                            <input type="number" step="0.01" class="form-control" id="inputPreco"
+                                   placeholder="Preço (deixe vazio = preço cadastrado)" style="max-width:250px;">
+                            <button type="button" class="btn btn-primary btn-sm" id="btnAdicionar">
+                                <i class="bi bi-plus-lg"></i> Adicionar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="tabelaItens">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th class="text-center">Preço Padrão</th>
+                                    <th class="text-center" style="width:130px;">Preço no Catálogo</th>
+                                    <th class="text-center" style="width:50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="itensBody">
+                                <tr id="linhaVazia">
+                                    <td colspan="4" class="empty-state">
+                                        Nenhum produto adicionado.
+                                    </td>
+                                </tr>
+                                {% if itens %}
+                                {% for item in itens %}
+                                <tr data-produto-id="{{ item.produto_id }}">
+                                    <td style="color:var(--text-primary);font-weight:500;">{{ item.produto.nome }}</td>
+                                    <td class="text-center">R$ {{ '%.2f'|format(item.produto.preco_venda)|replace('.',',') }}</td>
+                                    <td class="text-center">
+                                        <input type="hidden" name="produto_id[]" value="{{ item.produto_id }}">
+                                        <input type="text" class="form-control form-control-sm text-center" name="preco[]"
+                                               value="{{ '%.2f'|format(item.preco_personalizado)|replace('.',',') if item.preco_personalizado is not none else '' }}"
+                                               placeholder="padrão" style="width:120px;margin:0 auto;">
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-outline-danger btn-sm btn-icon" onclick="removerItem(this)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('catalogos.listar') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-lg"></i> {% if catalogo %}Salvar{% else %}Criar{% endif %} Catálogo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function removerItem(btn) {
+    btn.closest('tr').remove();
+    if (document.querySelectorAll('#itensBody tr').length === 0) {
+        document.getElementById('itensBody').innerHTML =
+            '<tr id="linhaVazia"><td colspan="4" class="empty-state">Nenhum produto adicionado.</td></tr>';
+    }
+}
+
+document.getElementById('btnBuscar').addEventListener('click', function() {
+    const busca = document.getElementById('buscaProduto').value;
+    fetch('{{ url_for("catalogos.api_produtos") }}?busca=' + encodeURIComponent(busca))
+        .then(function(r) { return r.json(); })
+        .then(function(produtos) {
+            const select = document.getElementById('selectProduto');
+            select.innerHTML = '';
+            if (produtos.length === 0) {
+                select.innerHTML = '<option disabled>Nenhum produto encontrado.</option>';
+            } else {
+                produtos.forEach(function(p) {
+                    // skip already added
+                    if (document.querySelector('tr[data-produto-id="' + p.id + '"]')) return;
+                    var opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.dataset.preco = p.preco_venda;
+                    opt.dataset.nome = p.nome;
+                    opt.textContent = p.nome + ' (R$ ' + p.preco_venda.toFixed(2).replace('.',',') + ')';
+                    select.appendChild(opt);
+                });
+            }
+            document.getElementById('resultadoBusca').style.display = 'block';
+        });
+});
+
+document.getElementById('btnAdicionar').addEventListener('click', function() {
+    const select = document.getElementById('selectProduto');
+    const opt = select.options[select.selectedIndex];
+    if (!opt || !opt.value) { alert('Selecione um produto.'); return; }
+
+    const produtoId = opt.value;
+    const nome = opt.dataset.nome;
+    const precoPadrao = parseFloat(opt.dataset.preco);
+    const precoInput = document.getElementById('inputPreco');
+    const precoValor = precoInput.value.trim();
+
+    if (document.querySelector('tr[data-produto-id="' + produtoId + '"]')) {
+        alert('Este produto já foi adicionado.');
+        return;
+    }
+
+    var linhaVazia = document.getElementById('linhaVazia');
+    if (linhaVazia) linhaVazia.remove();
+
+    var tr = document.createElement('tr');
+    tr.dataset.produtoId = produtoId;
+    tr.innerHTML =
+        '<td style="color:var(--text-primary);font-weight:500;">' + nome + '</td>' +
+        '<td class="text-center">R$ ' + precoPadrao.toFixed(2).replace('.',',') + '</td>' +
+        '<td class="text-center">' +
+            '<input type="hidden" name="produto_id[]" value="' + produtoId + '">' +
+            '<input type="text" class="form-control form-control-sm text-center" name="preco[]" value="' + precoValor + '" placeholder="padrão" style="width:120px;margin:0 auto;">' +
+        '</td>' +
+        '<td class="text-center">' +
+            '<button type="button" class="btn btn-outline-danger btn-sm btn-icon" onclick="removerItem(this)"><i class="bi bi-trash"></i></button>' +
+        '</td>';
+    document.getElementById('itensBody').appendChild(tr);
+    select.remove(select.selectedIndex);
+    precoInput.value = '';
+    if (select.options.length === 0) {
+        select.innerHTML = '<option disabled>Nenhum produto disponível.</option>';
+    }
+});
+
+document.getElementById('buscaProduto').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnBuscar').click(); }
+});
+</script>
+{% endblock %}

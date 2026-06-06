@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block titulo %}Página não encontrada{% endblock %}
+{% block page_title %}404{% endblock %}
+{% block content %}
+<div class="page-404">
+    <div class="error-illustration">
+        <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="85" stroke="var(--accent)" stroke-width="2" fill="none" opacity="0.3"/>
+            <circle cx="100" cy="100" r="55" stroke="var(--accent)" stroke-width="1.5" fill="none" opacity="0.2"/>
+            <path d="M60 60 L140 140 M140 60 L60 140" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+            <path d="M100 45 L100 70 M100 130 L100 155 M45 100 L70 100 M130 100 L155 100" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+        </svg>
+    </div>
+    <h2 class="error-code">4<span class="enso-mark">○</span>4</h2>
+    <p class="error-message">Esta página se perdeu no caminho.</p>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-house"></i> Voltar ao Início
+    </a>
+</div>
+{% endblock %}

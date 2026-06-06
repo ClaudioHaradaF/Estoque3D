@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ catalogo.nome }} — Estoque3D</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        @page { margin: 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: #f8f6f4;
+            color: #222;
+            padding: 30px;
+        }
+        .header {
+            display: flex; align-items: center; gap: 16px;
+            border-bottom: 2px solid #BC002D;
+            padding-bottom: 16px; margin-bottom: 8px;
+        }
+        .header img { height: 48px; }
+        .header-info { flex: 1; }
+        .header-info h1 {
+            font-size: 22px; font-weight: 700; color: #BC002D;
+            letter-spacing: -0.5px;
+        }
+        .header-info .desc {
+            font-size: 13px; color: #888; margin-top: 4px;
+        }
+        .header-info .data {
+            font-size: 12px; color: #aaa; margin-top: 2px;
+        }
+        .subtitle {
+            font-size: 13px; color: #888; margin-bottom: 24px;
+        }
+        .prod-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .prod-card {
+            background: #fff; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            overflow: hidden; display: flex; flex-direction: column;
+            transition: box-shadow 0.2s;
+        }
+        .prod-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .prod-card-img {
+            height: 160px; background: #f0ece8;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+        .prod-card-img img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .prod-card-img .placeholder {
+            font-size: 40px; color: #ccc;
+        }
+        .prod-card-body {
+            padding: 14px 16px; flex: 1;
+            display: flex; flex-direction: column;
+        }
+        .prod-card-body .nome {
+            font-size: 15px; font-weight: 600; color: #222;
+            margin-bottom: 4px;
+        }
+        .prod-card-body .categoria {
+            font-size: 12px; color: #999; margin-bottom: 8px;
+        }
+        .prod-card-body .preco {
+            font-size: 20px; font-weight: 700; color: #BC002D;
+            margin-top: auto;
+        }
+        .prod-card-body .preco-original {
+            font-size: 13px; color: #999;
+            text-decoration: line-through;
+            margin-right: 8px;
+        }
+        .prod-card-body .preco-promo {
+            font-size: 20px; font-weight: 700; color: #2d7d5a;
+        }
+        .no-print {
+            text-align: center; margin: 30px 0 20px;
+        }
+        .no-print button {
+            padding: 10px 24px; background: #BC002D; color: #fff;
+            border: none; border-radius: 6px; cursor: pointer;
+            font-size: 14px; margin: 0 6px;
+        }
+        .no-print a {
+            padding: 10px 24px; background: #666; color: #fff;
+            border: none; border-radius: 6px; cursor: pointer;
+            font-size: 14px; text-decoration: none; display: inline-block;
+            margin: 0 6px;
+        }
+        .footer {
+            margin-top: 30px; font-size: 11px; color: #ccc;
+            text-align: center; border-top: 1px solid #e0d8d0;
+            padding-top: 12px;
+        }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .no-print { display: none; }
+            .prod-card { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+            .prod-card:hover { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="{{ url_for('static', filename='img/harborio-logo.png') }}" alt="Harborio">
+        <div class="header-info">
+            <h1>{{ catalogo.nome }}</h1>
+            {% if catalogo.descricao %}<div class="desc">{{ catalogo.descricao }}</div>{% endif %}
+            <div class="data">Gerado em {{ now().strftime('%d/%m/%Y') }}</div>
+        </div>
+    </div>
+
+    <p class="subtitle">{{ itens|length }} produto(s)</p>
+
+    {% if itens %}
+    <div class="prod-grid">
+        {% for item in itens %}
+        {% set p = item.produto %}
+        {% set preco_final = item.preco_exibido %}
+        <div class="prod-card">
+            <div class="prod-card-img">
+                {% if p.imagem %}
+                <img src="{{ url_for('static', filename='uploads/' + p.imagem) }}" alt="{{ p.nome }}">
+                {% else %}
+                <span class="placeholder"><i class="bi bi-image"></i></span>
+                {% endif %}
+            </div>
+            <div class="prod-card-body">
+                <div class="nome">{{ p.nome }}</div>
+                <div class="categoria">{{ p.categoria_nome }}</div>
+                <div>
+                    {% if item.preco_personalizado is not none and item.preco_personalizado != p.preco_venda %}
+                    <span class="preco-original">R$ {{ '%.2f'|format(p.preco_venda)|replace('.',',') }}</span>
+                    <span class="preco-promo">R$ {{ '%.2f'|format(item.preco_personalizado)|replace('.',',') }}</span>
+                    {% else %}
+                    <span class="preco">R$ {{ '%.2f'|format(preco_final)|replace('.',',') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:60px 0;color:#aaa;">
+        <i class="bi bi-inbox" style="font-size:48px;"></i>
+        <p style="margin-top:12px;">Nenhum produto neste catálogo.</p>
+    </div>
+    {% endif %}
+
+    <div class="no-print">
+        <button onclick="window.print()"><i class="bi bi-printer"></i> Imprimir Catálogo</button>
+        <a href="{{ url_for('catalogos.listar') }}"><i class="bi bi-arrow-left"></i> Voltar</a>
+    </div>
+
+    <div class="footer">
+        Estoque3D — Sistema de Controle de Estoque para Manufatura 3D
+    </div>
+</body>
+</html>

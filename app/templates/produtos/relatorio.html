@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Produtos — Estoque3D</title>
+    <style>
+        @page { margin: 20mm 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            color: #222;
+            background: #fff;
+            padding: 20px 30px;
+        }
+        .header {
+            display: flex; align-items: center; gap: 16px;
+            border-bottom: 2px solid #BC002D;
+            padding-bottom: 16px; margin-bottom: 24px;
+        }
+        .header img { height: 48px; }
+        .header h1 {
+            font-size: 20px; font-weight: 600; color: #BC002D;
+            letter-spacing: -0.3px;
+        }
+        .header .data {
+            margin-left: auto; font-size: 12px; color: #888;
+        }
+        .subtitle {
+            font-size: 13px; color: #666; margin-top: -16px; margin-bottom: 20px;
+        }
+        table {
+            width: 100%; border-collapse: collapse; font-size: 12px;
+        }
+        th {
+            background: #f5f0eb; color: #333;
+            text-align: left; padding: 8px 10px;
+            font-weight: 600; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        th:nth-child(3), th:nth-child(4), th:nth-child(5) { text-align: center; }
+        td {
+            padding: 7px 10px; border-bottom: 1px solid #e0d8d0;
+        }
+        td:nth-child(3), td:nth-child(4), td:nth-child(5) { text-align: center; }
+        td:nth-child(4) { font-weight: 600; }
+        tr:nth-child(even) td { background: #faf8f6; }
+        .footer {
+            margin-top: 30px; font-size: 11px; color: #aaa;
+            text-align: center; border-top: 1px solid #e0d8d0;
+            padding-top: 12px;
+        }
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="{{ url_for('static', filename='img/harborio-logo.png') }}" alt="Harborio">
+        <h1>Relatório de Produtos</h1>
+        <span class="data">{{ now().strftime('%d/%m/%Y') }}</span>
+    </div>
+    <p class="subtitle">Lista completa de produtos ativos no sistema</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:40px;">#</th>
+                <th>Produto</th>
+                <th style="width:100px;">Categoria</th>
+                <th style="width:90px;">Preço</th>
+                <th style="width:70px;">Estoque</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ p.nome }}</td>
+                <td>{{ p.categoria_nome }}</td>
+                <td>R$ {{ '%.2f'|format(p.preco_venda)|replace('.',',') }}</td>
+                <td>{{ p.qtd_estoque }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Estoque3D — Sistema de Controle de Estoque para Manufatura 3D
+    </div>
+
+    <div class="no-print" style="text-align:center;margin-top:20px;">
+        <button onclick="window.print()" style="padding:10px 24px;background:#BC002D;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+    </div>
+</body>
+</html>

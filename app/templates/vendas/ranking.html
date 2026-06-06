@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block titulo %}Ranking de Vendas{% endblock %}
+{% block page_title %}Produtos Mais Vendidos{% endblock %}
+
+{% block header_actions %}
+<form class="date-filter" method="GET">
+    <div>
+        <label class="form-label visually-hidden" for="data_ini">De</label>
+        <input type="date" class="form-control" id="data_ini" name="data_ini"
+               value="{{ data_ini.isoformat() }}">
+    </div>
+    <div>
+        <label class="form-label visually-hidden" for="data_fim">Até</label>
+        <input type="date" class="form-control" id="data_fim" name="data_fim"
+               value="{{ data_fim.isoformat() }}">
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-funnel"></i> Filtrar</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:50px;">#</th>
+                    <th>Produto</th>
+                    <th class="text-center">Qtd Vendida</th>
+                    <th class="text-center">Valor Total</th>
+                    <th class="text-center">Preço Unit.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if ranking %}
+                    {% for item in ranking %}
+                    <tr class="table-row-animate">
+                        <td style="font-weight:700;color:var(--text-primary);">{{ loop.index }}</td>
+                        <td style="color:var(--text-primary);font-weight:500;">{{ item.nome }}</td>
+                        <td class="text-center">
+                            <span class="badge {% if item.qtd_total > 10 %}bg-success{% elif item.qtd_total > 3 %}bg-warning{% else %}bg-secondary{% endif %}">
+                                {{ item.qtd_total }}
+                            </span>
+                        </td>
+                        <td class="text-center">R$ {{ '%.2f'|format(item.valor_total)|replace('.',',') }}</td>
+                        <td class="text-center" style="color:var(--text-muted);">R$ {{ '%.2f'|format(item.preco_venda)|replace('.',',') }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p>Nenhuma venda no período selecionado.</p>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

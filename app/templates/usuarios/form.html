@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block titulo %}{% if usuario %}Editar{% else %}Novo{% endif %} Usuário{% endblock %}
+{% block page_title %}{% if usuario %}Editar Usuário{% else %}Novo Usuário{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="glass-card">
+            <div class="card-header">
+                <h5>
+                    {% if usuario %}
+                    <i class="bi bi-pencil"></i> Editar Usuário
+                    {% else %}
+                    <i class="bi bi-plus-lg"></i> Novo Usuário
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">E-mail *</label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ usuario.email if usuario else '' }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            {% if usuario %}Nova senha (deixe em branco para manter){% else %}Senha *{% endif %}
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               {% if not usuario %}required{% endif %}
+                               placeholder="{% if usuario %}•••••• (opcional){% else %}••••••{% endif %}">
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('usuarios.listar') }}" class="btn btn-outline-secondary">Voltar</a>
+                        <button type="submit" class="btn btn-primary">
+                            {% if usuario %}Atualizar{% else %}Cadastrar{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

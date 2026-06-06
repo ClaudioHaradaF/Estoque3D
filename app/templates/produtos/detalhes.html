@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block titulo %}{{ produto.nome }}{% endblock %}
+{% block page_title %}{{ produto.nome }}{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('produtos.editar', id=produto.id) }}" class="btn btn-primary">
+    <i class="bi bi-pencil"></i> Editar
+</a>
+<form action="{{ url_for('produtos.excluir', id=produto.id) }}" method="POST" class="d-inline"
+      onsubmit="return confirm('Excluir {{ produto.nome }}?')">
+    <button type="submit" class="btn btn-outline-danger">
+        <i class="bi bi-trash"></i>
+    </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="glass-card mb-4">
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3" style="color: var(--text-muted);">Categoria</div>
+                    <div class="col-md-3" style="font-weight: 500;">{{ produto.categoria_nome }}</div>
+                    <div class="col-md-3" style="color: var(--text-muted);">Peso</div>
+                    <div class="col-md-3" style="font-weight: 500;">{{ produto.peso ~ 'g' if produto.peso else '-' }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3" style="color: var(--text-muted);">Preço de Venda</div>
+                    <div class="col-md-3" style="font-weight: 700; font-size: 18px; color: #34d399;">
+                        R$ {{ "%.2f"|format(produto.preco_venda)|replace('.',',') }}
+                    </div>
+                    <div class="col-md-3" style="color: var(--text-muted);">Estoque</div>
+                    <div class="col-md-3">
+                        <span class="badge fs-6 {% if produto.qtd_estoque <= 5 %}bg-danger{% elif produto.qtd_estoque <= 10 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                            {{ produto.qtd_estoque }}
+                        </span>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3" style="color: var(--text-muted);">Custo de Produção</div>
+                    <div class="col-md-3" style="font-weight: 500;">R$ {{ "%.2f"|format(produto.custo_producao)|replace('.',',') }}</div>
+                    <div class="col-md-3" style="color: var(--text-muted);">Margem de Lucro</div>
+                    <div class="col-md-3">
+                        <span class="badge fs-6 {% if produto.margem_lucro >= 50 %}bg-success{% elif produto.margem_lucro >= 20 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                            {{ produto.margem_lucro }}%
+                        </span>
+                    </div>
+                </div>
+                {% if produto.descricao %}
+                <div class="row mb-3">
+                    <div class="col-md-3" style="color: var(--text-muted);">Descrição</div>
+                    <div class="col-md-9">{{ produto.descricao }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="glass-card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-puzzle" style="color: #a78bfa;"></i> Insumos Vinculados</h5>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Insumo</th>
+                            <th>Qtd. Usada</th>
+                            <th>Un.</th>
+                            <th>Custo Unit.</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pi in produto.insumos.all() %}
+                        <tr>
+                            <td>{{ pi.insumo_rel.nome }}</td>
+                            <td>{{ pi.qtd_usada }}</td>
+                            <td>{{ pi.insumo_rel.unidade }}</td>
+                            <td>R$ {{ "%.2f"|format(pi.insumo_rel.preco_custo)|replace('.',',') }}</td>
+                            <td>R$ {{ "%.2f"|format(pi.insumo_rel.preco_custo * pi.qtd_usada)|replace('.',',') }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="empty-state">
+                                Nenhum insumo vinculado a este produto.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end fw-bold">Custo Total:</td>
+                            <td class="fw-bold" style="color: #a78bfa;">R$ {{ "%.2f"|format(produto.custo_producao)|replace('.',',') }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="glass-card mb-4">
+            <div class="card-header">
+                <h5><i class="bi bi-calculator" style="color: #f59e0b;"></i> Detalhamento dos Custos</h5>
+            </div>
+            <div class="table-container">
+                <table style="font-size: 14px;">
+                    <tr style="background: rgba(124,58,237,0.08);">
+                        <td colspan="2" class="fw-bold" style="color: #a78bfa;">Produção (lote)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Qtd. por lote</td>
+                        <td class="text-end">{{ produto.qtd_por_lote }} unidades</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Tempo de impressão</td>
+                        <td class="text-end">{{ produto.tempo_impressao }} horas</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Máquina ({{ produto.custo_maquina_hora|replace('.',',') }}/h)</td>
+                        <td class="text-end">R$ {{ "%.2f"|format(produto.custo_maquina_hora * produto.tempo_impressao)|replace('.',',') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Energia ({{ produto.custo_energia_hora|replace('.',',') }}/h)</td>
+                        <td class="text-end">R$ {{ "%.2f"|format(produto.custo_energia_hora * produto.tempo_impressao)|replace('.',',') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Mão de obra ({{ produto.custo_mao_obra_hora|replace('.',',') }}/h)</td>
+                        <td class="text-end">R$ {{ "%.2f"|format(produto.custo_mao_obra_hora * produto.tempo_impressao)|replace('.',',') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Material (filamento/resina)</td>
+                        <td class="text-end">R$ {{ "%.2f"|format(produto.custo_material_lote)|replace('.',',') }}</td>
+                    </tr>
+                    <tr style="background: rgba(255,255,255,0.03);">
+                        <td style="padding-left: 24px;" class="fw-bold">Custo operação do lote</td>
+                        <td class="text-end fw-bold">R$ {{ "%.2f"|format(produto.custo_operacao + produto.custo_material_lote)|replace('.',',') }}</td>
+                    </tr>
+                    <tr style="background: rgba(124,58,237,0.08);">
+                        <td style="padding-left: 24px;" class="fw-bold">Custo unitário (operação / {{ produto.qtd_por_lote }})</td>
+                        <td class="text-end fw-bold" style="color: #a78bfa;">R$ {{ "%.2f"|format(produto.custo_unitario_sem_insumos)|replace('.',',') }}</td>
+                    </tr>
+                    <tr style="background: rgba(251,191,36,0.08);">
+                        <td colspan="2" class="fw-bold" style="color: #f59e0b;">Insumos (unidade)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding-left: 24px;">Custo total em insumos</td>
+                        <td class="text-end">R$ {{ "%.2f"|format(produto.custo_insumos_unitario)|replace('.',',') }}</td>
+                    </tr>
+                    <tr style="background: rgba(16,185,129,0.1);">
+                        <td class="fw-bold" style="color: #34d399; font-size: 15px;">Custo de Produção (unitário total)</td>
+                        <td class="text-end fw-bold" style="color: #34d399; font-size: 15px;">R$ {{ "%.2f"|format(produto.custo_producao)|replace('.',',') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        {% if produto.imagem %}
+        <div class="glass-card mb-4">
+            <div class="card-header">
+                <h5>Imagem</h5>
+            </div>
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='uploads/' + produto.imagem) }}"
+                     class="img-fluid rounded" alt="{{ produto.nome }}"
+                     style="max-height: 280px; border-radius: var(--radius-md);">
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="glass-card mb-4">
+            <div class="card-header">
+                <h5>Resumo Financeiro</h5>
+            </div>
+            <div class="table-container" style="border: none;">
+                <table style="font-size: 14px;">
+                    <tr>
+                        <td style="color: var(--text-muted);">Preço de Venda</td>
+                        <td class="text-end fw-medium" style="color: #34d399;">R$ {{ "%.2f"|format(produto.preco_venda)|replace('.',',') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Custo de Produção</td>
+                        <td class="text-end" style="color: #ef4444;">- R$ {{ "%.2f"|format(produto.custo_producao)|replace('.',',') }}</td>
+                    </tr>
+                    <tr style="background: rgba(255,255,255,0.03);">
+                        <td class="fw-bold" style="color: var(--text-primary);">Lucro Unitário</td>
+                        <td class="text-end fw-bold" style="color: #34d399; font-size: 16px;">
+                            R$ {{ "%.2f"|format(produto.lucro_unitario)|replace('.',',') }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-muted);">Margem</td>
+                        <td class="text-end fw-bold" style="color: #a78bfa;">{{ produto.margem_lucro }}%</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

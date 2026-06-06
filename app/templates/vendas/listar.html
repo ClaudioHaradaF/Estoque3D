@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block titulo %}Vendas{% endblock %}
+{% block page_title %}Vendas{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('vendas.rapida') }}" class="btn btn-primary" style="background:#2d7d5a;border-color:#2d7d5a;">
+    <i class="bi bi-lightning-fill"></i> Venda Rápida
+</a>
+<a href="{{ url_for('vendas.nova') }}" class="btn btn-outline-primary">
+    <i class="bi bi-plus-lg"></i> Nova Venda
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="card-body">
+        <form class="date-filter" method="GET">
+            <div>
+                <label class="form-label visually-hidden" for="data_ini">De</label>
+                <input type="date" class="form-control" id="data_ini" name="data_ini"
+                       value="{{ data_ini.isoformat() }}">
+            </div>
+            <div>
+                <label class="form-label visually-hidden" for="data_fim">Até</label>
+                <input type="date" class="form-control" id="data_fim" name="data_fim"
+                       value="{{ data_fim.isoformat() }}">
+            </div>
+            <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>Itens</th>
+                    <th>Total</th>
+                    <th>Pagamento</th>
+                    <th>Lucro</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in vendas %}
+                <tr>
+                    <td style="color: var(--text-muted);">#{{ v.id }}</td>
+                    <td>{{ v.data_venda.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ v.cliente_nome or '-' }}</td>
+                    <td><span class="badge bg-info">{{ v.itens.count() }}</span></td>
+                    <td style="color: var(--text-primary); font-weight: 600;">R$ {{ "%.2f"|format(v.valor_total)|replace('.',',') }}</td>
+                    <td>{% if v.forma_pagamento %}<span class="badge bg-secondary">{{ v.forma_pagamento }}</span>{% else %}-{% endif %}</td>
+                    <td><span class="badge bg-success">R$ {{ "%.2f"|format(v.lucro_total)|replace('.',',') }}</span></td>
+                    <td class="text-end">
+                        <a href="{{ url_for('vendas.detalhes', id=v.id) }}" class="btn btn-outline-info btn-sm btn-icon">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <form action="{{ url_for('vendas.excluir', id=v.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Cancelar esta venda? O estoque ser\u00e1 restaurado.')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                            <rect x="10" y="18" width="44" height="34" rx="4" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                            <path d="M10 26h44" stroke="#2c2c2c" stroke-width="2"/>
+                            <circle cx="22" cy="38" r="4" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
+                            <circle cx="42" cy="38" r="4" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
+                            <path d="M22 38l20-4" stroke="#2c2c2c" stroke-width="1.5"/>
+                        </svg>
+                        <p>Nenhuma venda no período</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

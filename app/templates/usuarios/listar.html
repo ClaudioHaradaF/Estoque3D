@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block titulo %}Usuários{% endblock %}
+{% block page_title %}Gerenciar Usuários{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('usuarios.novo') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Novo Usuário
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="table-container" style="border: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>E-mail</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td style="font-weight: 500; color: var(--text-primary);">
+                        {{ u.email }}
+                        {% if u.email == 'harborio3d@gmail.com' %}
+                        <span class="badge bg-success" style="margin-left: 8px;">Admin</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('usuarios.editar', id=u.id) }}" class="btn btn-outline-primary btn-sm btn-icon" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% if u.email != 'harborio3d@gmail.com' %}
+                        <form action="{{ url_for('usuarios.excluir', id=u.id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Excluir usuário {{ u.email }}?')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm btn-icon" title="Excluir">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" class="empty-state">
+                        <i class="bi bi-people"></i>
+                        <p>Nenhum usuário cadastrado.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

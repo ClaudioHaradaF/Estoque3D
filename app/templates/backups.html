@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block titulo %}Backups{% endblock %}
+{% block page_title %}Backups do Banco de Dados{% endblock %}
+
+{% block header_actions %}
+<form action="{{ url_for('dashboard.criar_backup') }}" method="POST" class="d-inline">
+    <button type="submit" class="btn btn-primary">
+        <i class="bi bi-hdd-stack"></i> Criar Backup Agora
+    </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="table-container" style="border: none;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Arquivo</th>
+                    <th>Data</th>
+                    <th>Tamanho</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in backups %}
+                <tr>
+                    <td style="font-weight: 500; color: var(--text-primary);">{{ b.nome }}</td>
+                    <td>{{ b.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ '{:.1f}'.format(b.tamanho / 1024) }} KB</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('dashboard.baixar_backup', nome=b.nome) }}" class="btn btn-outline-primary btn-sm btn-icon" title="Baixar">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p>Nenhum backup encontrado.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

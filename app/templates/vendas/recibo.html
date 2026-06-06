@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo - Venda #{{ venda.id }}</title>
+    <style>
+        @page { margin: 12mm; size: A4; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #222;
+            line-height: 1.5;
+        }
+        .header { text-align: center; margin-bottom: 24px; }
+        .header h1 { font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
+        .header p { font-size: 11px; color: #666; }
+        .info-grid { display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px dashed #222; }
+        .info-grid .col { flex: 1; }
+        .info-grid .label { font-size: 9px; text-transform: uppercase; color: #888; letter-spacing: 1px; }
+        .info-grid .value { font-weight: bold; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888; padding: 6px 4px; border-bottom: 1px solid #222; }
+        td { padding: 6px 4px; border-bottom: 1px solid #ddd; }
+        td:last-child, th:last-child { text-align: right; }
+        td:nth-child(2), th:nth-child(2) { text-align: center; }
+        td:nth-child(3), th:nth-child(3) { text-align: right; }
+        .total-row { font-weight: bold; font-size: 14px; }
+        .total-row td { border-top: 2px solid #222; border-bottom: 2px solid #222; }
+        .total-row td:last-child { font-size: 16px; }
+        .footer { text-align: center; margin-top: 32px; font-size: 10px; color: #888; border-top: 1px dashed #222; padding-top: 12px; }
+        .obs { margin-top: 16px; font-size: 11px; color: #555; }
+        @media print {
+            .no-print { display: none; }
+        }
+        .no-print { text-align: center; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button onclick="window.print()" style="padding: 8px 24px; font-size: 14px; cursor: pointer;">Imprimir / Salvar PDF</button>
+        <button onclick="window.close()" style="padding: 8px 24px; font-size: 14px; cursor: pointer;">Fechar</button>
+    </div>
+
+    <div class="header">
+        <h1>Estoque3D</h1>
+        <p>Sistema de Controle de Estoque para Manufatura 3D</p>
+    </div>
+
+    <div class="info-grid">
+        <div class="col">
+            <div class="label">Venda</div>
+            <div class="value">#{{ venda.id }}</div>
+        </div>
+        <div class="col">
+            <div class="label">Data</div>
+            <div class="value">{{ venda.data_venda.strftime('%d/%m/%Y') }}</div>
+        </div>
+        <div class="col">
+            <div class="label">Cliente</div>
+            <div class="value">{{ venda.cliente_nome or '---' }}</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Produto</th>
+                <th>Qtd</th>
+                <th>Preço</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in venda.itens %}
+            <tr>
+                <td>{{ item.produto.nome }}</td>
+                <td>{{ item.qtd }}</td>
+                <td>R$ {{ '%.2f'|format(item.preco_unitario)|replace('.',',') }}</td>
+                <td>R$ {{ '%.2f'|format(item.subtotal)|replace('.',',') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="3">TOTAL</td>
+                <td>R$ {{ '%.2f'|format(venda.valor_total)|replace('.',',') }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if venda.observacao %}
+    <div class="obs"><strong>Obs:</strong> {{ venda.observacao }}</div>
+    {% endif %}
+
+    <div class="footer">
+        <p>Estoque3D v1.0 &mdash; Recibo gerado em {{ now().strftime('%d/%m/%Y %H:%M') }}</p>
+    </div>
+</body>
+</html>
