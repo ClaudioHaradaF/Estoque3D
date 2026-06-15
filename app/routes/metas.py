@@ -3,12 +3,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.extensions import db
 from app.models.meta import Meta
 from app.models.venda import Venda
+from app.models.enums import TipoMeta, CategoriaMeta
 
 bp = Blueprint('metas', __name__, url_prefix='/metas')
 
 
 def recalcular_financeira(meta):
-    if meta.categoria == 'financeiro':
+    if meta.categoria == CategoriaMeta.FINANCEIRO:
         total = db.session.query(db.func.sum(Venda.valor_total)).filter(
             Venda.data_venda >= meta.data_ini,
             Venda.data_venda <= meta.data_fim
@@ -16,7 +17,7 @@ def recalcular_financeira(meta):
         meta.valor_atual = round(total, 2)
 
 
-@bp.route('/')
+@bp.route('/', methods=['GET', 'POST'])
 def listar():
     metas = Meta.query.order_by(Meta.concluida.asc(), Meta.data_fim.asc()).all()
     for m in metas:
@@ -87,7 +88,7 @@ def editar(id):
             meta.data_ini = datetime.strptime(request.form.get('data_ini', ''), '%Y-%m-%d').date()
         except ValueError:
             pass
-        if meta.tipo == 'diaria':
+        if meta.tipo == TipoMeta.DIARIA:
             meta.data_fim = meta.data_ini
         else:
             try:

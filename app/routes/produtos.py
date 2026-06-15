@@ -1,7 +1,10 @@
 import os
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from PIL import Image
+from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 from app.extensions import db
 from app.models.produto import Produto
 from app.models.categoria import Categoria
@@ -18,25 +21,113 @@ def arquivo_permitido(nome):
     return '.' in nome and nome.rsplit('.', 1)[1].lower() in EXTENSOES_PERMITIDAS
 
 
+def redimensionar_imagem(caminho, max_lado=1200, thumb_lado=200):
+    """Redimensiona imagem para max_lado (maior lado) e gera thumbnail."""
+    try:
+        img = Image.open(caminho)
+        img.thumbnail((max_lado, max_lado), Image.LANCZOS)
+        img.save(caminho, optimize=True, quality=85)
+        # Thumbnail
+        pasta = os.path.dirname(caminho)
+        nome, ext = os.path.splitext(os.path.basename(caminho))
+        thumb_nome = f"{nome}_thumb{ext}"
+        thumb_path = os.path.join(pasta, thumb_nome)
+        thumb = img.copy()
+        thumb.thumbnail((thumb_lado, thumb_lado), Image.LANCZOS)
+        thumb.save(thumb_path, optimize=True, quality=80)
+        return thumb_nome
+    except Exception:
+        return None
+
+
 @bp.route('/')
 def listar():
     pagina = request.args.get('pagina', 1, type=int)
     por_pagina = request.args.get('por_pagina', 24, type=int)
     busca = request.args.get('busca', '').strip()
     categoria_id = request.args.get('categoria_id', '').strip()
-    query = Produto.query.filter_by(ativo=True)
+    ordenar = request.args.get('ordenar', 'nome')
+    direcao = request.args.get('direcao', 'asc')
+    query = Produto.query.filter(
+        Produto.ativo == True,
+        or_(Produto.avulso == False, Produto.avulso == None)
+    )
     if busca:
         query = query.filter(Produto.nome.ilike(f'%{busca}%'))
     if categoria_id:
         query = query.filter_by(categoria_id=int(categoria_id))
-    pagination = query.order_by(Produto.nome).paginate(
+    ordem_map = {
+        'nome': Produto.nome,
+        'preco': Produto.preco_venda,
+        'estoque': Produto.qtd_estoque,
+    }
+    coluna = ordem_map.get(ordenar, Produto.nome)
+    if direcao == 'desc':
+        coluna = coluna.desc()
+    pagination = query.order_by(coluna).paginate(
+        page=pagina, per_page=por_pagina, error_out=False
+    )
+    produtos = pagination.items
+    categorias = Categoria.query.order_by(Categoria.nome).all()
+    avulso_count = Produto.query.filter_by(avulso=True).count()
+    return render_template(
+        'produtos/listar.html', produtos=produtos, pagination=pagination,
+        categorias=categorias, busca=busca, cat_filtro=categoria_id,
+        avulso_count=avulso_count, ordenar=ordenar, direcao=direcao
+    )
+
+
+@bp.route('/api/buscar')
+def buscar_json():
+    q = request.args.get('q', '').strip()
+    ordenar = request.args.get('ordenar', 'nome')
+    direcao = request.args.get('direcao', 'asc')
+    pagina = request.args.get('pagina', 1, type=int)
+    por_pagina = request.args.get('por_pagina', 24, type=int)
+    limite = request.args.get('limite', 0, type=int)
+
+    query = Produto.query.filter(
+        Produto.ativo == True,
+        or_(Produto.avulso == False, Produto.avulso == None)
+    )
+    if q:
+        query = query.filter(Produto.nome.ilike(f'%{q}%'))
+
+    ordem_map = {'nome': Produto.nome, 'preco': Produto.preco_venda, 'estoque': Produto.qtd_estoque}
+    col = ordem_map.get(ordenar, Produto.nome)
+    if direcao == 'desc':
+        col = col.desc()
+
+    if limite:
+        items = query.order_by(col).limit(limite).all()
+        return jsonify([{'id': p.id, 'nome': p.nome, 'preco': p.preco_venda, 'estoque': p.qtd_estoque} for p in items])
+
+    pagination = query.order_by(col).paginate(page=pagina, per_page=por_pagina, error_out=False)
+    return jsonify({
+        'items': [{'id': p.id, 'nome': p.nome, 'preco': p.preco_venda, 'estoque': p.qtd_estoque,
+                    'imagem': p.imagem or '', 'categoria': (p.categoria_nome or '')} for p in pagination.items],
+        'pagina': pagination.page,
+        'total_paginas': pagination.pages,
+        'total': pagination.total,
+    })
+
+
+@bp.route('/avulsos')
+def listar_avulsos():
+    pagina = request.args.get('pagina', 1, type=int)
+    por_pagina = request.args.get('por_pagina', 24, type=int)
+    busca = request.args.get('busca', '').strip()
+    query = Produto.query.filter_by(avulso=True)
+    if busca:
+        query = query.filter(Produto.nome.ilike(f'%{busca}%'))
+    pagination = query.order_by(Produto.created_at.desc()).paginate(
         page=pagina, per_page=por_pagina, error_out=False
     )
     produtos = pagination.items
     categorias = Categoria.query.order_by(Categoria.nome).all()
     return render_template(
-        'produtos/listar.html', produtos=produtos, pagination=pagination,
-        categorias=categorias, busca=busca, cat_filtro=categoria_id
+        'produtos/listar_avulsos.html', produtos=produtos, pagination=pagination,
+        categorias=categorias, busca=busca
     )
 
 
@@ -114,6 +205,7 @@ def novo():
                 caminho = os.path.join(current_app.config['UPLOAD_FOLDER'], nome_arquivo)
                 imagem.save(caminho)
                 produto.imagem = nome_arquivo
+                redimensionar_imagem(caminho)
             else:
                 flash('Formato de imagem não permitido.', 'warning')
 
@@ -130,9 +222,13 @@ def novo():
                 db.session.add(pi)
 
         produto.recalcular_custo()
-        db.session.commit()
-        flash('Produto cadastrado com sucesso!', 'success')
-        return redirect(url_for('produtos.listar'))
+        try:
+            db.session.commit()
+            flash('Produto cadastrado com sucesso!', 'success')
+            return redirect(url_for('produtos.listar'))
+        except IntegrityError:
+            db.session.rollback()
+            flash('Já existe um produto com este nome.', 'danger')
     return render_template('produtos/form.html', produto=None, categorias=categorias, insumos=insumos)
 
 
@@ -206,9 +302,12 @@ def editar(id):
                 imagem.save(caminho)
                 if produto.imagem:
                     caminho_antigo = os.path.join(current_app.config['UPLOAD_FOLDER'], produto.imagem)
-                    if os.path.exists(caminho_antigo):
-                        os.remove(caminho_antigo)
+                    thumb_antigo = os.path.join(current_app.config['UPLOAD_FOLDER'], produto.imagem.replace('.', '_thumb.'))
+                    for p in [caminho_antigo, thumb_antigo]:
+                        if os.path.exists(p):
+                            os.remove(p)
                 produto.imagem = nome_arquivo
+                redimensionar_imagem(caminho)
             else:
                 flash('Formato de imagem não permitido.', 'warning')
 
@@ -225,10 +324,18 @@ def editar(id):
                 pi = ProdutoInsumo(produto_id=produto.id, insumo_id=insumo_id, qtd_usada=qtd_usada)
                 db.session.add(pi)
 
+        # Se era avulso e agora tem dados completos, tornar catálogo
+        if produto.avulso and produto.categoria_id:
+            produto.avulso = False
+            produto.ativo = True
         produto.recalcular_custo()
-        db.session.commit()
-        flash('Produto atualizado com sucesso!', 'success')
-        return redirect(url_for('produtos.listar'))
+        try:
+            db.session.commit()
+            flash('Produto atualizado com sucesso!', 'success')
+            return redirect(url_for('produtos.listar'))
+        except IntegrityError:
+            db.session.rollback()
+            flash('Já existe um produto com este nome.', 'danger')
     return render_template('produtos/form.html', produto=produto, categorias=categorias, insumos=insumos)
 
 
@@ -267,7 +374,10 @@ def duplicar(id):
 @bp.route('/relatorio')
 def relatorio():
     from datetime import datetime as dt
-    produtos = Produto.query.filter_by(ativo=True).order_by(Produto.nome).all()
+    produtos = Produto.query.filter(
+        Produto.ativo == True,
+        or_(Produto.avulso == False, Produto.avulso == None)
+    ).order_by(Produto.nome).all()
     return render_template('produtos/relatorio.html', produtos=produtos, now=lambda: dt.now())
 
 

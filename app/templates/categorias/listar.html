@@ -10,7 +10,7 @@
 
 {% block content %}
 <div class="glass-card">
-    <div class="table-container" style="border: none;">
+    <div class="table-container desktop-table" style="border: none;">
         <table>
             <thead>
                 <tr>
@@ -25,7 +25,7 @@
                 <tr>
                     <td style="color: var(--text-primary); font-weight: 500;">{{ cat.nome }}</td>
                     <td>{{ cat.descricao or '-' }}</td>
-                    <td><span class="badge bg-primary">{{ cat.produtos.count() }}</span></td>
+                    <td><span class="badge bg-primary">{{ cat_prod_counts.get(cat.id, 0) }}</span></td>
                     <td class="text-end">
                         <a href="{{ url_for('categorias.editar', id=cat.id) }}" class="btn btn-outline-primary btn-sm btn-icon">
                             <i class="bi bi-pencil"></i>
@@ -54,6 +54,44 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards">
+        {% for cat in categorias %}
+        <div class="mobile-card-item">
+            <div class="card-row">
+                <span class="card-label">Nome</span>
+                <span class="card-value">{{ cat.nome }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Descrição</span>
+                <span class="card-value">{{ cat.descricao or '-' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Produtos</span>
+                <span class="card-value">
+                    <span class="card-badge">{{ cat_prod_counts.get(cat.id, 0) }}</span>
+                </span>
+            </div>
+            <div class="card-actions">
+                <a href="{{ url_for('categorias.editar', id=cat.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+                <form action="{{ url_for('categorias.excluir', id=cat.id) }}" method="POST"
+                      onsubmit="return confirm('Excluir categoria {{ cat.nome }}?')">
+                    <button type="submit" title="Excluir"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                <path d="M12 52V16l20-8 20 8v36" stroke="#2c2c2c" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                <path d="M12 16l20 8 20-8" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                <path d="M32 24v28" stroke="#2c2c2c" stroke-width="2"/>
+                <path d="M12 52h40" stroke="#2c2c2c" stroke-width="2"/>
+            </svg>
+            <p>Nenhuma categoria cadastrada</p>
+            <a href="{{ url_for('categorias.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeira</a>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

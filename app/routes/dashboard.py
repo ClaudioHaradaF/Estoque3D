@@ -1,7 +1,8 @@
 from datetime import date, timedelta, datetime, timezone
 from sqlalchemy import func
-import os
-from flask import Blueprint, render_template, request, send_file, flash, redirect, url_for
+from sqlalchemy.orm import subqueryload
+import os, csv, io
+from flask import Blueprint, render_template, request, send_file, flash, redirect, url_for, Response, current_app
 from app.extensions import db
 from app.models.produto import Produto
 from app.models.insumo import Insumo
@@ -24,7 +25,7 @@ def index():
     hoje = date.today()
     fim = datetime.strptime(request.args.get('data_fim', hoje.isoformat()), '%Y-%m-%d').date()
     ini = datetime.strptime(request.args.get(
-        'data_ini', (hoje - timedelta(days=30)).isoformat()), '%Y-%m-%d').date()
+        'data_ini', hoje.isoformat()), '%Y-%m-%d').date()
 
     total_produtos = Produto.query.filter_by(ativo=True).count()
     total_pecas = db.session.query(
@@ -40,6 +41,21 @@ def index():
     ).all()
     valor_periodo = sum(v.valor_total for v in vendas_periodo)
     lucro_periodo = sum(v.lucro_total for v in vendas_periodo)
+    total_itens = db.session.query(func.sum(VendaItem.qtd)).join(Venda).filter(
+        Venda.data_venda >= ini, Venda.data_venda <= fim
+    ).scalar() or 0
+
+    # Comparativo com período anterior
+    dias_range = (fim - ini).days + 1
+    ini_ant = ini - timedelta(days=dias_range)
+    fim_ant = ini - timedelta(days=1)
+    vendas_ant = Venda.query.filter(
+        Venda.data_venda >= ini_ant, Venda.data_venda <= fim_ant
+    ).all()
+    valor_ant = sum(v.valor_total for v in vendas_ant)
+    lucro_ant = sum(v.lucro_total for v in vendas_ant)
+    var_faturamento = round((valor_periodo - valor_ant) / valor_ant * 100, 1) if valor_ant else None
+    var_lucro = round((lucro_periodo - lucro_ant) / lucro_ant * 100, 1) if lucro_ant else None
 
     # Valor total em estoque (custo_producao * qtd_estoque)
     valor_estoque = db.session.query(
@@ -47,8 +63,8 @@ def index():
     ).filter(Produto.ativo == True).scalar() or 0
 
     # Saúde do estoque
-    ok_count = Produto.query.filter(Produto.ativo == True, Produto.qtd_estoque > 10).count()
-    baixo_count = Produto.query.filter(Produto.ativo == True, Produto.qtd_estoque >= 1, Produto.qtd_estoque <= 10).count()
+    ok_count = Produto.query.filter(Produto.ativo == True, Produto.qtd_estoque > current_app.config['ESTOQUE_BAIXO_ALERTA']).count()
+    baixo_count = Produto.query.filter(Produto.ativo == True, Produto.qtd_estoque >= 1, Produto.qtd_estoque <= current_app.config['ESTOQUE_BAIXO_ALERTA']).count()
     zerado_count = Produto.query.filter(Produto.ativo == True, Produto.qtd_estoque == 0).count()
 
     # Ticket médio
@@ -71,20 +87,23 @@ def index():
     top_prod_valores = [float(p.total_valor) for p in top_produtos]
 
     # Últimas 5 vendas
-    ultimas_vendas = Venda.query.order_by(Venda.created_at.desc()).limit(5).all()
+    ultimas_vendas = Venda.query.options(
+        subqueryload(Venda.itens)
+    ).order_by(Venda.created_at.desc()).limit(5).all()
 
     produtos_baixo_estoque = Produto.query.filter(
-        Produto.ativo == True, Produto.qtd_estoque <= 5
+        Produto.ativo == True, Produto.qtd_estoque <= current_app.config['ESTOQUE_BAIXO_LIMITE']
     ).order_by(Produto.qtd_estoque.asc()).all()
 
-    categorias = Categoria.query.all()
-    cat_labels = []
-    cat_data = []
-    for cat in categorias:
-        count = Produto.query.filter_by(categoria_id=cat.id, ativo=True).count()
-        if count > 0:
-            cat_labels.append(cat.nome)
-            cat_data.append(count)
+    categorias_count = db.session.query(
+        Categoria.nome,
+        func.count(Produto.id)
+    ).outerjoin(Produto, db.and_(
+        Categoria.id == Produto.categoria_id,
+        Produto.ativo == True
+    )).group_by(Categoria.id, Categoria.nome).all()
+    cat_labels = [c[0] for c in categorias_count if c[1] > 0]
+    cat_data = [c[1] for c in categorias_count if c[1] > 0]
 
     dias = (fim - ini).days
     vendas_diarias = {}
@@ -106,10 +125,17 @@ def index():
 
     spark_vendas_list = []
     spark_faturamento_list = []
-    for d in spark_dates:
-        day_vendas = Venda.query.filter(Venda.data_venda == d).all()
-        spark_vendas_list.append(len(day_vendas))
-        spark_faturamento_list.append(round(sum(v.valor_total for v in day_vendas), 2))
+    spark_ini = spark_dates[0]
+    spark_fim = spark_dates[-1]
+    vendas_agrupadas = db.session.query(
+        Venda.data_venda,
+        func.count(Venda.id),
+        func.coalesce(func.sum(Venda.valor_total), 0)
+    ).filter(Venda.data_venda >= spark_ini, Venda.data_venda <= spark_fim
+    ).group_by(Venda.data_venda).all()
+    dia_map = {str(r[0]): (r[1], float(r[2])) for r in vendas_agrupadas}
+    spark_vendas_list = [dia_map.get(d.isoformat(), (0, 0.0))[0] for d in spark_dates]
+    spark_faturamento_list = [dia_map.get(d.isoformat(), (0, 0.0))[1] for d in spark_dates]
 
     spark_vendas = ','.join(str(x) for x in spark_vendas_list)
     spark_faturamento = ','.join(str(x) for x in spark_faturamento_list)
@@ -117,15 +143,24 @@ def index():
     spark_produtos_list = []
     spark_pecas_list = []
     spark_insumos_list = []
+
+    # Load all created_at dates once and count cumulatively in Python
+    produtos_created = [p.created_at for p in Produto.query.with_entities(Produto.created_at).filter(Produto.ativo == True).all()]
+    insumos_created = [i.created_at for i in Insumo.query.with_entities(Insumo.created_at).all()]
+    pecas_total = total_pecas
+
+    def _to_utc(dt):
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
     for d in spark_dates:
-        end_dt = datetime.combine(d, datetime.max.time()).replace(tzinfo=timezone.utc)
-        spark_produtos_list.append(Produto.query.filter(
-            Produto.ativo == True, Produto.created_at <= end_dt).count())
-        pecas_qtd = db.session.query(func.sum(Produto.qtd_estoque)).filter(
-            Produto.ativo == True, Produto.created_at <= end_dt).scalar() or 0
-        spark_pecas_list.append(pecas_qtd)
-        spark_insumos_list.append(Insumo.query.filter(
-            Insumo.created_at <= end_dt).count())
+        end_dt = datetime.combine(d, datetime.max.time(), tzinfo=timezone.utc)
+        spark_produtos_list.append(sum(1 for c in produtos_created if c is not None and _to_utc(c) <= end_dt))
+        spark_insumos_list.append(sum(1 for c in insumos_created if c is not None and _to_utc(c) <= end_dt))
+    spark_pecas_list = [pecas_total] * 7
 
     spark_produtos = ','.join(str(x) for x in spark_produtos_list)
     spark_pecas = ','.join(str(x) for x in spark_pecas_list)
@@ -156,7 +191,10 @@ def index():
         total_pecas=total_pecas,
         spark_pecas=spark_pecas,
         total_insumos=total_insumos,
+        total_itens=total_itens,
         total_vendas=total_vendas,
+        var_faturamento=var_faturamento,
+        var_lucro=var_lucro,
         ticket_medio=ticket_medio,
         valor_periodo=round(valor_periodo, 2),
         lucro_periodo=round(lucro_periodo, 2),
@@ -168,6 +206,7 @@ def index():
         cat_data=cat_data,
         vendas_labels=vendas_labels,
         vendas_data=vendas_data,
+        media_diaria=round(valor_periodo / max((fim - ini).days + 1, 1), 2),
         produtos_baixo_count=len(produtos_baixo_estoque),
         top_prod_labels=top_prod_labels,
         top_prod_data=top_prod_data,
@@ -219,6 +258,34 @@ def baixar_backup(nome):
         flash('Backup não encontrado.', 'danger')
         return redirect(url_for('dashboard.listar_backups'))
     return send_file(caminho, as_attachment=True)
+
+
+@bp.route('/exportar/csv')
+def exportar_csv():
+    hoje = date.today()
+    fim = datetime.strptime(request.args.get('data_fim', hoje.isoformat()), '%Y-%m-%d').date()
+    ini = datetime.strptime(request.args.get('data_ini', (hoje - timedelta(days=30)).isoformat()), '%Y-%m-%d').date()
+    vendas = Venda.query.options(subqueryload(Venda.itens)).filter(
+        Venda.data_venda >= ini, Venda.data_venda <= fim
+    ).order_by(Venda.data_venda.desc(), Venda.created_at.desc()).all()
+    output = io.StringIO()
+    w = csv.writer(output)
+    w.writerow(['Data', 'Produto', 'Qtd', 'Valor Unit.', 'Total', 'Forma Pagto.', 'Taxa %', 'Taxa R$', 'Cliente'])
+    for v in vendas:
+        for item in v.itens:
+            w.writerow([
+                v.data_venda.isoformat(),
+                item.produto.nome if item.produto else 'Removido',
+                item.qtd, item.preco_unitario,
+                round(item.qtd * item.preco_unitario, 2),
+                v.forma_pagamento or '', v.taxa_percentual or 0,
+                v.taxa_valor or 0, v.cliente_nome or '',
+            ])
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=vendas.csv'}
+    )
 
 
 @bp.route('/api/ngrok-status')

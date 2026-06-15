@@ -5,8 +5,8 @@ class VendaItem(db.Model):
     __tablename__ = 'venda_item'
 
     id = db.Column(db.Integer, primary_key=True)
-    venda_id = db.Column(db.Integer, db.ForeignKey('venda.id'), nullable=False)
-    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'), nullable=False)
+    venda_id = db.Column(db.Integer, db.ForeignKey('venda.id'), nullable=False, index=True)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'), nullable=False, index=True)
     qtd = db.Column(db.Integer, nullable=False, default=1)
     preco_unitario = db.Column(db.Float, nullable=False)
     custo_unitario = db.Column(db.Float, nullable=False, default=0)

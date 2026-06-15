@@ -1,22 +1,23 @@
 import time
+from sqlalchemy.orm import subqueryload
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 from unicodedata import normalize as ucnorm
 from app.extensions import db
 from app.models.produto import Produto
 from app.models.categoria import Categoria
+from app.models.venda import Venda
+from app.models.venda_item import VendaItem
 from app.services.gsheets import conectar, parsear_dados, exportar_dados
 
 bp = Blueprint('importacao', __name__, url_prefix='/importar')
 
 
 def _normalizar(nome):
-    """Remove acentos, sinais especiais (°, ½, ", etc.) e padroniza para matching."""
+    if not nome:
+        return ''
     n = nome.strip().lower()
-    # Decompose unicode (é -> e + combining acute)
     n = ucnorm('NFKD', n)
-    # Remove combining marks (accents, etc.)
     n = n.encode('ascii', errors='ignore').decode('ascii')
-    # Replace special chars commonly used in this dataset
     n = n.replace('\u00b0', '').replace('\u00bd', '"').replace('"', '')
     n = n.replace('/', '').replace('\\', '')
     return n.strip()
@@ -46,9 +47,9 @@ def importar_gsheets():
             flash(f'Erro ao conectar com Google Sheets: {e}', 'danger')
             return redirect(url_for('produtos.listar'))
 
-        # Build normalized name lookup for fuzzy matching
-        todos_produtos = Produto.query.filter_by(ativo=True).all()
-        nome_map = {}  # normalized name -> Produto
+        # Build normalized name lookup — busca TODOS os produtos, inclusive inativos
+        todos_produtos = Produto.query.all()
+        nome_map = {}
         for p in todos_produtos:
             key = _normalizar(p.nome)
             if key not in nome_map:
@@ -56,45 +57,55 @@ def importar_gsheets():
 
         criados = 0
         atualizados = 0
+        erros_item = []
         for item in dados:
-            item_key = _normalizar(item['nome'])
-            produto = nome_map.get(item_key)
+            try:
+                item_key = _normalizar(item.get('nome', ''))
+                if not item_key:
+                    erros_item.append('Item sem nome ignorado')
+                    continue
+                produto = nome_map.get(item_key)
 
-            if item['nicho']:
-                if item['subnicho']:
-                    nome_sub = f"{item['nicho']} > {item['subnicho']}"
+                if item.get('nicho'):
+                    if item.get('subnicho'):
+                        nome_sub = f"{item['nicho']} > {item['subnicho']}"
+                    else:
+                        nome_sub = item['nicho']
+                    cat = Categoria.query.filter_by(nome=nome_sub).first()
+                    if not cat:
+                        cat = Categoria(nome=nome_sub)
+                        db.session.add(cat)
+                        db.session.flush()
                 else:
-                    nome_sub = item['nicho']
-                cat = Categoria.query.filter_by(nome=nome_sub).first()
-                if not cat:
-                    cat = Categoria(nome=nome_sub)
-                    db.session.add(cat)
-                    db.session.flush()
-            else:
-                cat = None
+                    cat = None
 
-            if produto:
-                produto.ordem = item['ordem']
-                produto.preco_venda = item['preco_venda']
-                produto.qtd_estoque = item['qtd_estoque']
-                produto.tamanho = item['tamanho'] or None
-                produto.descricao = item['descricao'] or None
-                produto.categoria_id = cat.id if cat else None
-                atualizados += 1
-            else:
-                produto = Produto(
-                    ordem=item['ordem'],
-                    nome=item['nome'],
-                    preco_venda=item['preco_venda'],
-                    qtd_estoque=item['qtd_estoque'],
-                    tamanho=item['tamanho'] or None,
-                    descricao=item['descricao'] or None,
-                    categoria_id=cat.id if cat else None,
-                )
-                db.session.add(produto)
-                criados += 1
+                if produto:
+                    produto.ordem = item['ordem']
+                    produto.preco_venda = item['preco_venda']
+                    produto.qtd_estoque = item['qtd_estoque']
+                    produto.tamanho = item['tamanho'] or None
+                    produto.descricao = item['descricao'] or None
+                    produto.categoria_id = cat.id if cat else None
+                    if not produto.ativo:
+                        produto.ativo = True
+                    atualizados += 1
+                else:
+                    produto = Produto(
+                        ordem=item['ordem'],
+                        nome=item['nome'],
+                        preco_venda=item['preco_venda'],
+                        qtd_estoque=item['qtd_estoque'],
+                        tamanho=item['tamanho'] or None,
+                        descricao=item['descricao'] or None,
+                        categoria_id=cat.id if cat else None,
+                    )
+                    db.session.add(produto)
+                    criados += 1
+            except Exception as e:
+                erros_item.append(f'Erro ao processar "{item.get("nome", "?")}": {e}')
 
         db.session.commit()
+        erros.extend(erros_item)
         partes = []
         if criados:
             partes.append(f'{criados} criado(s)')
@@ -115,10 +126,16 @@ def exportar_para_gsheets():
         flash('Aguarde 30 segundos entre exportações.', 'warning')
         return redirect(url_for('produtos.listar'))
     try:
-        produtos = Produto.query.filter_by(ativo=True).order_by(Produto.ordem).all()
-        exportar_dados(produtos)
+        todos = Produto.query.order_by(Produto.avulso, Produto.ordem).all()
+        produtos_normais = [p for p in todos if not p.avulso]
+        produtos_avulsos = [p for p in todos if p.avulso]
+        vendas = Venda.query.options(
+            subqueryload(Venda.itens).subqueryload(VendaItem.produto)
+        ).order_by(Venda.data_venda.desc(), Venda.created_at.desc()).all()
+        exportar_dados(produtos_normais, produtos_avulsos, vendas)
         session['ultima_exportacao'] = time.time()
-        flash(f'{len(produtos)} produto(s) exportados para o Google Sheets com sucesso!', 'success')
+        total_vendas = sum(len(v.itens) for v in vendas)
+        flash(f'{len(produtos_normais)} produtos em Inventário, {len(produtos_avulsos)} avulsos, {total_vendas} itens em Vendas exportados!', 'success')
     except Exception as e:
         flash(f'Erro ao exportar para Google Sheets: {e}', 'danger')
     return redirect(url_for('produtos.listar'))

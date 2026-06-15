@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from sqlalchemy import func
 from app.extensions import db
 from app.models.categoria import Categoria
+from app.models.produto import Produto
 
 bp = Blueprint('categorias', __name__)
 
@@ -8,7 +10,10 @@ bp = Blueprint('categorias', __name__)
 @bp.route('/')
 def listar():
     categorias = Categoria.query.order_by(Categoria.nome).all()
-    return render_template('categorias/listar.html', categorias=categorias)
+    cat_prod_counts = dict(db.session.query(
+        Produto.categoria_id, func.count(Produto.id)
+    ).filter(Produto.ativo == True).group_by(Produto.categoria_id).all())
+    return render_template('categorias/listar.html', categorias=categorias, cat_prod_counts=cat_prod_counts)
 
 
 @bp.route('/novo', methods=['GET', 'POST'])

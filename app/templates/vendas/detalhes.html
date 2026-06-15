@@ -54,7 +54,7 @@
     <div class="card-header">
         <h5><i class="bi bi-box" style="color: #a78bfa;"></i> Itens da Venda</h5>
     </div>
-    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+    <div class="table-container desktop-table" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
         <table>
             <thead>
                 <tr>
@@ -90,6 +90,46 @@
                 </tr>
             </tfoot>
         </table>
+    </div>
+    <div class="mobile-cards">
+        {% for item in venda.itens %}
+        <div class="mobile-card-item">
+            <div class="card-row">
+                <span class="card-label">Produto</span>
+                <span class="card-value" style="color:#a78bfa;">{{ item.produto.nome }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Qtd</span>
+                <span class="card-value">{{ item.qtd }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Preço Unit.</span>
+                <span class="card-value">R$ {{ "%.2f"|format(item.preco_unitario)|replace('.',',') }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Custo Unit.</span>
+                <span class="card-value" style="color:var(--text-muted);">R$ {{ "%.2f"|format(item.custo_unitario)|replace('.',',') }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Subtotal</span>
+                <span class="card-value">R$ {{ "%.2f"|format(item.subtotal)|replace('.',',') }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Lucro</span>
+                <span class="card-value" style="color:#34d399;">R$ {{ "%.2f"|format(item.lucro_item)|replace('.',',') }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="mobile-card-item" style="border-left:3px solid #34d399;">
+            <div class="card-row">
+                <span class="card-label">Total</span>
+                <span class="card-value" style="font-size:17px;color:#34d399;">R$ {{ "%.2f"|format(venda.valor_total)|replace('.',',') }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Lucro Total</span>
+                <span class="card-value" style="font-size:17px;color:#a78bfa;">R$ {{ "%.2f"|format(venda.lucro_total)|replace('.',',') }}</span>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -10,7 +10,7 @@
 
 {% block content %}
 <div class="glass-card">
-    <div class="table-container">
+    <div class="table-container desktop-table">
         <table>
             <thead>
                 <tr>
@@ -28,7 +28,7 @@
                         <a href="{{ url_for('catalogos.ver', id=c.id) }}" style="color:inherit;">{{ c.nome }}</a>
                     </td>
                     <td style="color:var(--text-muted);">{{ c.descricao or '---' }}</td>
-                    <td class="text-center">{{ c.itens.count() }}</td>
+                    <td class="text-center">{{ c.itens|length }}</td>
                     <td class="text-center" style="color:var(--text-muted);">{{ c.created_at.strftime('%d/%m/%Y') }}</td>
                     <td class="text-center">
                         <a href="{{ url_for('catalogos.ver', id=c.id) }}" class="btn btn-outline-primary btn-sm btn-icon" title="Visualizar">
@@ -56,6 +56,42 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards">
+        {% for c in catalogos %}
+        <div class="mobile-card-item">
+            <div class="card-row">
+                <span class="card-label">Nome</span>
+                <span class="card-value">{{ c.nome }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Descrição</span>
+                <span class="card-value" style="color:var(--text-muted);">{{ c.descricao or '---' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Produtos</span>
+                <span class="card-value">{{ c.itens|length }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Criado em</span>
+                <span class="card-value" style="color:var(--text-muted);">{{ c.created_at.strftime('%d/%m/%Y') }}</span>
+            </div>
+            <div class="card-actions">
+                <a href="{{ url_for('catalogos.ver', id=c.id) }}" title="Visualizar"><i class="bi bi-eye"></i></a>
+                <a href="{{ url_for('catalogos.editar', id=c.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+                <form action="{{ url_for('catalogos.excluir', id=c.id) }}" method="POST"
+                      onsubmit="return confirm('Excluir catálogo &quot;{{ c.nome }}&quot;?');">
+                    <button type="submit" title="Excluir"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-book"></i>
+            <p>Nenhum catálogo criado ainda.</p>
+            <a href="{{ url_for('catalogos.novo') }}" class="btn btn-primary">Criar Catálogo</a>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

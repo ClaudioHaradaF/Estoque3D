@@ -22,7 +22,7 @@
             </form>
         </div>
     </div>
-    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+    <div class="table-container desktop-table" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
         <table>
             <thead>
                 <tr>
@@ -71,6 +71,47 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards">
+        {% for ins in insumos %}
+        <div class="mobile-card-item">
+            <div class="card-row">
+                <span class="card-label">Nome</span>
+                <span class="card-value">{{ ins.nome }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Custo</span>
+                <span class="card-value">R$ {{ "%.2f"|format(ins.preco_custo)|replace('.',',') }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Estoque</span>
+                <span class="card-value">
+                    <span class="card-badge" style="background:{% if ins.qtd_estoque <= 0 %}#BC002D{% else %}#2d7d5a{% endif %};color:#fff;">{{ ins.qtd_estoque }}</span>
+                </span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Un.</span>
+                <span class="card-value">{{ ins.unidade }}</span>
+            </div>
+            <div class="card-actions">
+                <a href="{{ url_for('insumos.editar', id=ins.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+                <form action="{{ url_for('insumos.excluir', id=ins.id) }}" method="POST"
+                      onsubmit="return confirm('Excluir insumo {{ ins.nome }}?')">
+                    <button type="submit" title="Excluir"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                <circle cx="32" cy="32" r="18" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                <path d="M32 22v10l6 6" stroke="#2c2c2c" stroke-width="2" stroke-linecap="round"/>
+                <path d="M18 14l8 8m20-8l-8 8" stroke="#2c2c2c" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <p>Nenhum insumo encontrado</p>
+            <a href="{{ url_for('insumos.novo') }}" class="btn btn-primary btn-sm">Cadastrar primeiro</a>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block titulo %}Produtos Avulsos{% endblock %}
+{% block page_title %}Produtos Avulsos{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('produtos.listar') }}" class="btn btn-outline-primary">
+    <i class="bi bi-box-seam"></i> Produtos
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+    <div class="card-body">
+        <div class="toolbar">
+            <form class="search-box" method="GET">
+                <input type="text" class="form-control" name="busca" placeholder="Buscar avulso..."
+                       value="{{ busca }}">
+                <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
+                {% if busca %}
+                <a href="{{ url_for('produtos.listar_avulsos') }}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    <div style="padding: 0 16px 16px;">
+        <div class="info-box" style="background:rgba(188,0,45,0.06);border:1px solid rgba(188,0,45,0.15);border-radius:8px;padding:12px;font-size:13px;margin-bottom:16px;">
+            <i class="bi bi-info-circle" style="color:#BC002D"></i>
+            Produtos criados durante a venda rápida. Edite para completar as informações e movê-los para o catálogo principal.
+        </div>
+        {% if produtos %}
+        <div class="prod-grid">
+            {% for p in produtos %}
+            <div class="prod-card" style="border-left: 3px solid #BC002D;">
+                <div class="prod-card-body">
+                    <a href="{{ url_for('produtos.editar', id=p.id) }}" class="prod-card-name">{{ p.nome }}</a>
+                    <div class="prod-card-cat">
+                        {% if p.categoria_rel %}
+                            {{ p.categoria_rel.nome }}
+                        {% else %}
+                            <span style="color: var(--text-muted);">Sem categoria</span>
+                        {% endif %}
+                    </div>
+                    <div class="prod-card-meta">
+                        <span class="prod-card-price">R$ {{ "%.2f"|format(p.preco_venda)|replace('.',',') }}</span>
+                        <span class="badge bg-secondary">{{ p.qtd_estoque }} estoque</span>
+                        <span style="font-size:10px;color:var(--text-muted);display:block;margin-top:2px;">
+                            Criado: {{ p.created_at.strftime('%d/%m/%Y') if p.created_at else '—' }}
+                        </span>
+                    </div>
+                </div>
+                <div class="prod-card-actions">
+                    <a href="{{ url_for('produtos.editar', id=p.id) }}" class="btn btn-outline-primary btn-sm btn-icon" title="Editar para completar cadastro">
+                        <i class="bi bi-pencil"></i> Editar
+                    </a>
+                    <form action="{{ url_for('produtos.excluir', id=p.id) }}" method="POST" class="d-inline"
+                          onsubmit="return confirm('Excluir produto avulso {{ p.nome }}?')">
+                        <button type="submit" class="btn btn-outline-danger btn-sm btn-icon" title="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if pagination.pages > 1 %}
+        <div class="pagination-nav">
+            {% if pagination.has_prev %}
+            <a href="?pagina={{ pagination.prev_num }}" class="btn btn-outline-secondary btn-sm">&laquo; Anterior</a>
+            {% endif %}
+            <span class="pagination-info">Página {{ pagination.page }} de {{ pagination.pages }} ({{ pagination.total }} avulsos)</span>
+            {% if pagination.has_next %}
+            <a href="?pagina={{ pagination.next_num }}" class="btn btn-outline-secondary btn-sm">Próxima &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-box" style="font-size:48px;opacity:0.15;display:block;margin-bottom:12px"></i>
+            <p>Nenhum produto avulso</p>
+            <p style="color: var(--text-muted);font-size:13px;">Produtos avulsos são criados durante a venda rápida quando o item não está no catálogo.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

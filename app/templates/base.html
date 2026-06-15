@@ -2,12 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f0eb">
     <title>Estoque3D — {% block titulo %}Sistema de Controle{% endblock %}</title>
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <link rel="icon" href="{{ url_for('static', filename='img/icon-192.svg') }}" sizes="192x192">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.svg') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="32x32">
+    <link rel="icon" href="{{ url_for('static', filename='img/icon-192.svg') }}" sizes="192x192" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.png') }}">
+    <link rel="apple-touch-icon" sizes="512x512" href="{{ url_for('static', filename='img/icon-512.png') }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -16,10 +18,16 @@
 </head>
 <body>
     <div class="washi-overlay"></div>
-    <div class="loading-screen">
+    <div class="loading-screen" id="loadingScreen">
         <div class="enso-loader"></div>
         <div class="loading-label">Carregando</div>
     </div>
+    <noscript>
+        <style>#loadingScreen { display: none !important; }</style>
+        <div class="alert alert-danger" style="margin:20px;text-align:center;">
+            JavaScript está desativado. Ative-o para usar o sistema.
+        </div>
+    </noscript>
     <div class="scroll-progress" id="scrollProgress"></div>
 
     <nav class="top-nav">
@@ -34,8 +42,12 @@
                     <i class="bi bi-grid-1x2-fill"></i> <span>Dashboard</span>
                 </a>
                 <a href="{{ url_for('produtos.listar') }}"
-                   class="{% if request.endpoint and request.endpoint.startswith('produtos.') %}active{% endif %}">
+                   class="{% if request.endpoint and request.endpoint.startswith('produtos.') and request.endpoint != 'produtos.listar_avulsos' %}active{% endif %}">
                     <i class="bi bi-box-seam"></i> <span>Produtos</span>
+                </a>
+                <a href="{{ url_for('produtos.listar_avulsos') }}"
+                   class="{% if request.endpoint == 'produtos.listar_avulsos' %}active{% endif %}">
+                    <i class="bi bi-box"></i> <span>Avulsos</span>
                 </a>
                 <a href="{{ url_for('insumos.listar') }}"
                    class="{% if request.endpoint and request.endpoint.startswith('insumos.') %}active{% endif %}">
@@ -61,6 +73,10 @@
                    class="{% if request.endpoint == 'dashboard.listar_backups' %}active{% endif %}">
                     <i class="bi bi-hdd-stack"></i> <span>Backups</span>
                 </a>
+                <a href="{{ url_for('configuracoes.taxas') }}"
+                   class="{% if request.endpoint and request.endpoint.startswith('configuracoes.') %}active{% endif %}">
+                    <i class="bi bi-percent"></i> <span>Taxas</span>
+                </a>
                 {% if session.user_id %}
                 <a href="{{ url_for('usuarios.listar') }}"
                    class="{% if request.endpoint and request.endpoint.startswith('usuarios.') %}active{% endif %}">
@@ -69,8 +85,8 @@
                 {% endif %}
                 <div class="nav-divider"></div>
                 {% if session.user_id %}
-                <a href="{{ url_for('auth.perfil') }}" style="color: rgba(255,255,255,0.5); font-size: 13px; padding: 0 8px; text-decoration:none;" title="Alterar senha">{{ session.user_email }}</a>
-                <a href="{{ url_for('auth.logout') }}" style="color: rgba(255,255,255,0.6);">
+                <a href="{{ url_for('auth.perfil') }}" style="color: rgba(255,255,255,0.85); font-size: 13px; padding: 0 8px; text-decoration:none;" title="Alterar senha">{{ session.user_email }}</a>
+                <a href="{{ url_for('auth.logout') }}" style="color: rgba(255,255,255,0.75);">
                     <i class="bi bi-box-arrow-right"></i>
                 </a>
                 {% else %}
@@ -109,6 +125,14 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
+            {% if baixo_estoque_count %}
+            <div class="alert alert-warning alert-dismissible fade show" style="border-radius:0;margin:0;text-align:center;" data-baixo-estoque-count="{{ baixo_estoque_count }}">
+                <i class="bi bi-exclamation-triangle"></i>
+                {{ baixo_estoque_count }} produto(s) com estoque ≤ 3 unidades.
+                <a href="{{ url_for('produtos.listar', ordenar='estoque', direcao='asc') }}" style="font-weight:600;">Ver</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
             {% block content %}{% endblock %}
         </div>
     </main>
@@ -118,9 +142,22 @@
         <small>Sistema de Controle de Estoque para Manufatura 3D</small>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <!-- Command Palette -->
+    <div class="cmd-palette-overlay" id="cmdPalette">
+        <div class="cmd-palette">
+            <div class="cmd-search">
+                <i class="bi bi-search"></i>
+                <input type="text" id="cmdInput" placeholder="Buscar produtos, vendas, insumos..." autocomplete="off" spellcheck="false">
+                <span class="cmd-hint">ESC</span>
+            </div>
+            <div class="cmd-results" id="cmdResults">
+                <div class="cmd-empty">Digite pelo menos 2 caracteres para buscar</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <script>
     // ===== CSRF PROTECTION =====
     var csrfToken = document.querySelector('meta[name="csrf-token"]');
@@ -163,7 +200,17 @@
     </script>
     <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('{{ url_for("static", filename="sw.js") }}');
+        navigator.serviceWorker.register('{{ url_for("static", filename="sw.js") }}').then(function(reg) {
+            // Check for updates on every load
+            reg.addEventListener('updatefound', function() {
+                var newWorker = reg.installing;
+                newWorker.addEventListener('statechange', function() {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        if (window.showToast) window.showToast('Nova versão disponível. Feche e reabra para atualizar.', 'info');
+                    }
+                });
+            });
+        });
     }
     </script>
     {% block scripts %}{% endblock %}

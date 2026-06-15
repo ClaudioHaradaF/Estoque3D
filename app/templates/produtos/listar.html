@@ -8,10 +8,13 @@
 </a>
 <form action="{{ url_for('importacao.exportar_para_gsheets') }}" method="POST" class="d-inline">
     <button type="submit" class="btn btn-outline-secondary"
-            onclick="return confirm('Exportar todos os produtos para o Google Sheets? Os dados atuais da planilha serão substituídos.')">
+            onclick="return confirm('Exportar todos os produtos para o Google Sheets? Os dados das colunas A-K serão atualizados. Linhas extras na planilha NÃO serão apagadas.')">
         <i class="bi bi-cloud-upload"></i> Exportar para Sheets
     </button>
 </form>
+<a href="{{ url_for('produtos.listar_avulsos') }}" class="btn btn-outline-danger">
+    <i class="bi bi-box"></i> Avulsos{% if avulso_count %} ({{ avulso_count }}){% endif %}
+</a>
 <a href="{{ url_for('produtos.relatorio') }}" class="btn btn-outline-primary" target="_blank">
     <i class="bi bi-printer"></i> Imprimir Relatório
 </a>
@@ -26,8 +29,9 @@
         <div class="toolbar">
             <form class="search-box" method="GET">
                 <input type="text" class="form-control" name="busca" placeholder="Buscar produto..."
-                       value="{{ busca }}">
-                <select class="form-select" name="categoria_id" style="max-width: 200px;">
+                       value="{{ busca }}" autocomplete="off" id="buscaInput">
+                <div id="sugestoes" style="position:absolute;top:100%;left:0;right:0;z-index:1000;background:var(--bg-secondary,#fff);border:1px solid var(--glass-border,#ddd);border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                <select class="form-select" name="categoria_id" style="width:auto;">
                     <option value="">Todas categorias</option>
                     {% for cat in categorias %}
                     <option value="{{ cat.id }}" {% if cat_filtro|string == cat.id|string %}selected{% endif %}>{{ cat.nome }}</option>
@@ -37,6 +41,16 @@
                 {% if busca or cat_filtro %}
                 <a href="{{ url_for('produtos.listar') }}" class="btn btn-outline-secondary btn-sm">Limpar</a>
                 {% endif %}
+                <select class="form-select" name="ordenar" style="width:auto;" onchange="this.form.submit()">
+                    <option value="nome" {% if ordenar == 'nome' %}selected{% endif %}>Nome</option>
+                    <option value="preco" {% if ordenar == 'preco' %}selected{% endif %}>Preço</option>
+                    <option value="estoque" {% if ordenar == 'estoque' %}selected{% endif %}>Estoque</option>
+                </select>
+                <input type="hidden" name="direcao" value="{{ direcao }}">
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="var d=this.parentNode.querySelector('[name=direcao]'); d.value=d.value=='asc'?'desc':'asc'; this.form.submit()">
+                    <i class="bi bi-arrow-{{ 'up' if direcao == 'asc' else 'down' }}"></i>
+                </button>
             </form>
         </div>
     </div>
@@ -47,7 +61,7 @@
             <div class="prod-card">
                 <a href="{{ url_for('produtos.detalhes', id=p.id) }}" class="prod-card-img">
                     {% if p.imagem %}
-                    <img src="{{ url_for('static', filename='uploads/' + p.imagem) }}"
+                    <img src="{{ url_for('static', filename='uploads/' + p.imagem.replace('.', '_thumb.')) }}"
                          alt="{{ p.nome }}" loading="lazy">
                     {% else %}
                     <span class="prod-card-placeholder"><i class="bi bi-image"></i></span>
@@ -61,7 +75,7 @@
                     {% endif %}
                     <div class="prod-card-meta">
                         <span class="prod-card-price">R$ {{ "%.2f"|format(p.preco_venda)|replace('.',',') }}</span>
-                        <span class="badge {% if p.qtd_estoque <= 5 %}bg-danger bg-pulse{% elif p.qtd_estoque <= 10 %}bg-warning{% else %}bg-success{% endif %}">
+                        <span class="badge {% if p.qtd_estoque <= ESTOQUE_BAIXO_LIMITE %}bg-danger bg-pulse{% elif p.qtd_estoque <= ESTOQUE_BAIXO_ALERTA %}bg-warning{% else %}bg-success{% endif %}">
                             {{ p.qtd_estoque }} estoque
                         </span>
                         <span class="badge {% if p.margem_lucro >= 50 %}bg-success{% elif p.margem_lucro >= 20 %}bg-warning{% else %}bg-danger{% endif %}">
@@ -93,7 +107,7 @@
         </div>
 
         {% if pagination.pages > 1 %}
-        <div class="pagination-nav">
+        <div class="pagination-nav" id="paginationNav">
             {% if pagination.has_prev %}
             <a href="?{{ request.query_string|replace('pagina=' ~ pagination.page, '') }}&pagina={{ pagination.prev_num }}" class="btn btn-outline-secondary btn-sm">&laquo; Anterior</a>
             {% endif %}
@@ -102,10 +116,11 @@
             <a href="?{{ request.query_string|replace('pagina=' ~ pagination.page, '') }}&pagina={{ pagination.next_num }}" class="btn btn-outline-secondary btn-sm">Próxima &raquo;</a>
             {% endif %}
         </div>
+        <div id="scrollSentinel" style="height:1px;"></div>
         {% endif %}
 
         {% else %}
-        <div class="empty-state" style="padding: 48px 16px;">
+        <div class="empty-state">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
                 <rect x="12" y="20" width="40" height="30" rx="4" stroke="#2c2c2c" stroke-width="2" fill="none"/>
                 <path d="M12 28h40" stroke="#2c2c2c" stroke-width="2"/>
@@ -117,4 +132,150 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+#sugestoes a {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; text-decoration:none; font-size:13px;
+    color:var(--text-primary); border-bottom:1px solid var(--glass-border,#ddd);
+}
+#sugestoes a:last-child { border-bottom:none; }
+#sugestoes a:hover { background:var(--accent-soft); }
+#sugestoes a .sug-preco { font-weight:600; color:var(--accent); }
+</style>
+<script>
+(function() {
+    var buscaInput = document.getElementById('buscaInput');
+    if (!buscaInput) return;
+    var sugestoes = document.getElementById('sugestoes');
+    var timer, sugestimer;
+    var paginaAtual = {{ pagination.page }};
+    var totalPaginas = {{ pagination.pages }};
+    var carregando = false;
+    var fimAlcancado = totalPaginas <= 1 || paginaAtual >= totalPaginas;
+
+    function getSearchParams() {
+        var form = buscaInput.closest('form');
+        return new URLSearchParams(new FormData(form));
+    }
+
+    function carregarGrid() {
+        var form = buscaInput.closest('form');
+        var params = new URLSearchParams(new FormData(form));
+        params.set('ajax', '1');
+        var url = '?' + params.toString();
+        fetch(url).then(function(r) { return r.text(); }).then(function(html) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+            var novoGrid = doc.querySelector('.prod-grid');
+            if (novoGrid) {
+                document.querySelector('.prod-grid').replaceWith(novoGrid);
+                history.replaceState(null, '', url);
+                paginaAtual = 1;
+                var pagInfo = doc.querySelector('.pagination-info');
+                if (pagInfo) {
+                    var m = pagInfo.textContent.match(/Página (\d+) de (\d+)/);
+                    if (m) { paginaAtual = parseInt(m[1]); totalPaginas = parseInt(m[2]); }
+                }
+                fimAlcancado = totalPaginas <= 1 || paginaAtual >= totalPaginas;
+                carregando = false;
+            }
+        });
+    }
+
+    buscaInput.addEventListener('input', function() {
+        var q = buscaInput.value;
+        clearTimeout(timer);
+        clearTimeout(sugestimer);
+        if (q.length >= 2) {
+            sugestimer = setTimeout(function() {
+                fetch('/produtos/api/buscar?q=' + encodeURIComponent(q) + '&limite=5')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        sugestoes.innerHTML = '';
+                        if (data.length === 0) { sugestoes.style.display = 'none'; return; }
+                        data.forEach(function(p) {
+                            var a = document.createElement('a');
+                            a.href = '#';
+                            a.innerHTML = '<span>' + p.nome + '</span><span class="sug-preco">R$ ' + p.preco.toFixed(2).replace('.',',') + '</span>';
+                            a.onclick = function(e) {
+                                e.preventDefault();
+                                buscaInput.value = p.nome;
+                                sugestoes.style.display = 'none';
+                                carregarGrid();
+                            };
+                            sugestoes.appendChild(a);
+                        });
+                        sugestoes.style.display = 'block';
+                    });
+            }, 200);
+        } else {
+            sugestoes.style.display = 'none';
+        }
+        timer = setTimeout(carregarGrid, 400);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!sugestoes.contains(e.target) && e.target !== buscaInput) {
+            sugestoes.style.display = 'none';
+        }
+    });
+
+    // ===== Infinite Scroll =====
+    var sentinel = document.getElementById('scrollSentinel');
+    if (sentinel && !fimAlcancado) {
+        var observer = new IntersectionObserver(function(entries) {
+            if (entries[0].isIntersecting && !carregando && !fimAlcancado) {
+                carregando = true;
+                paginaAtual++;
+                var params = getSearchParams();
+                params.set('pagina', paginaAtual);
+                params.set('por_pagina', '12');
+                fetch('/produtos/api/buscar?' + params.toString())
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var grid = document.querySelector('.prod-grid');
+                        if (!grid || !data.items || data.items.length === 0) {
+                            fimAlcancado = true;
+                            carregando = false;
+                            return;
+                        }
+                        data.items.forEach(function(p) {
+                            var div = document.createElement('div');
+                            div.className = 'prod-card animate-on-scroll';
+                            var imgHtml = p.imagem
+                                ? '<img src="/static/uploads/' + p.imagem.replace(/(\.\w+)$/, '_thumb$1') + '" alt="' + p.nome + '" loading="lazy">'
+                                : '<span class="prod-card-placeholder"><i class="bi bi-image"></i></span>';
+                            div.innerHTML =
+                                '<a href="/produtos/' + p.id + '" class="prod-card-img">' + imgHtml + '</a>' +
+                                '<div class="prod-card-body">' +
+                                    '<a href="/produtos/' + p.id + '" class="prod-card-name">' + p.nome + '</a>' +
+                                    '<div class="prod-card-cat">' + (p.categoria || '') + '</div>' +
+                                    '<div class="prod-card-meta">' +
+                                        '<span class="prod-card-price">R$ ' + p.preco.toFixed(2).replace('.',',') + '</span>' +
+                                        '<span class="badge ' + (p.estoque <= 5 ? 'bg-danger bg-pulse' : p.estoque <= 10 ? 'bg-warning' : 'bg-success') + '">' + p.estoque + ' estoque</span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="prod-card-actions">' +
+                                    '<a href="/produtos/' + p.id + '" class="btn btn-outline-info btn-sm btn-icon" title="Detalhes"><i class="bi bi-eye"></i></a>' +
+                                    '<a href="/produtos/' + p.id + '/editar" class="btn btn-outline-primary btn-sm btn-icon" title="Editar"><i class="bi bi-pencil"></i></a>' +
+                                '</div>';
+                            grid.appendChild(div);
+                            // Trigger animation
+                            var ro = new IntersectionObserver(function(ents) {
+                                ents.forEach(function(en) { if (en.isIntersecting) { en.target.classList.add('visible'); ro.unobserve(en.target); } });
+                            }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+                            ro.observe(div);
+                        });
+                        fimAlcancado = data.pagina >= data.total_paginas;
+                        carregando = false;
+                    }).catch(function() { carregando = false; });
+            }
+        }, { rootMargin: '200px' });
+        observer.observe(sentinel);
+    }
+})();
+</script>
 {% endblock %}

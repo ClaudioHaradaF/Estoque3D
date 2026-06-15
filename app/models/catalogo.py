@@ -6,12 +6,12 @@ class Catalogo(db.Model):
     __tablename__ = 'catalogo'
 
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(200), nullable=False)
+    nome = db.Column(db.String(200), nullable=False, unique=True)
     descricao = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    itens = db.relationship('CatalogoItem', backref='catalogo_rel',
-                            lazy='dynamic', cascade='all, delete-orphan',
+    itens = db.relationship('CatalogoItem', back_populates='catalogo_rel',
+                            lazy='select', cascade='all, delete-orphan',
                             order_by='CatalogoItem.id')
 
     def __repr__(self):
@@ -22,10 +22,11 @@ class CatalogoItem(db.Model):
     __tablename__ = 'catalogo_item'
 
     id = db.Column(db.Integer, primary_key=True)
-    catalogo_id = db.Column(db.Integer, db.ForeignKey('catalogo.id'), nullable=False)
-    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'), nullable=False)
+    catalogo_id = db.Column(db.Integer, db.ForeignKey('catalogo.id'), nullable=False, index=True)
+    produto_id = db.Column(db.Integer, db.ForeignKey('produto.id'), nullable=False, index=True)
     preco_personalizado = db.Column(db.Float, nullable=True)
 
+    catalogo_rel = db.relationship('Catalogo', back_populates='itens')
     produto = db.relationship('Produto', lazy='joined')
 
     @property

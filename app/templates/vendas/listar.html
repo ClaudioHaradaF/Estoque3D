@@ -12,9 +12,61 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    .vendas-table { width: 100%; }
+    .vendas-cards { display: none; }
+    @media (max-width: 640px) {
+        .vendas-table { display: none; }
+        .vendas-cards { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+        .venda-card {
+            background: var(--bg-secondary, #fff); border-radius: 12px;
+            padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .venda-card .card-top {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .venda-card .card-top .id-data {
+            font-size: 12px; color: var(--text-muted, #888);
+        }
+        .venda-card .card-top .id-data strong { color: var(--text-primary, #222); }
+        .venda-card .card-middle {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .venda-card .card-middle .cliente {
+            font-size: 14px; font-weight: 600; color: var(--text-primary, #222);
+        }
+        .venda-card .card-middle .total {
+            font-size: 17px; font-weight: 700; color: #BC002D;
+        }
+        .venda-card .card-bottom {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .venda-card .card-bottom .pagamento {
+            font-size: 11px; padding: 3px 8px; border-radius: 4px;
+            background: var(--bg-tertiary, #f0ebe6); color: var(--text-muted, #888);
+        }
+        .venda-card .card-bottom .acoes { display: flex; gap: 6px; }
+        .venda-card .card-bottom .acoes a,
+        .venda-card .card-bottom .acoes button {
+            width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border, #ddd);
+            background: var(--bg-secondary, #fff); cursor: pointer; display: inline-flex;
+            align-items: center; justify-content: center; color: var(--text-muted, #888);
+            text-decoration: none; font-size: 15px;
+        }
+        .venda-card .card-bottom .acoes form { margin: 0; }
+    }
+    @media (min-width: 641px) {
+        .vendas-cards { display: none; }
+    }
+</style>
 <div class="glass-card">
     <div class="card-body">
         <form class="date-filter" method="GET">
+            <div>
+                <input type="text" class="form-control" name="busca" placeholder="Buscar produto ou cliente..."
+                       value="{{ busca }}" style="min-width:160px;">
+            </div>
             <div>
                 <label class="form-label visually-hidden" for="data_ini">De</label>
                 <input type="date" class="form-control" id="data_ini" name="data_ini"
@@ -28,14 +80,15 @@
             <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
         </form>
     </div>
-    <div class="table-container" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
+    <!-- DESKTOP: table -->
+    <div class="table-container vendas-table" style="border: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);">
         <table>
             <thead>
                 <tr>
                     <th>#</th>
                     <th>Data</th>
                     <th>Cliente</th>
-                    <th>Itens</th>
+                    <th>Produtos</th>
                     <th>Total</th>
                     <th>Pagamento</th>
                     <th>Lucro</th>
@@ -44,11 +97,22 @@
             </thead>
             <tbody>
                 {% for v in vendas %}
+                {% set items = v.itens %}
+                {% set items_count = items|length %}
                 <tr>
                     <td style="color: var(--text-muted);">#{{ v.id }}</td>
                     <td>{{ v.data_venda.strftime('%d/%m/%Y') }}</td>
                     <td>{{ v.cliente_nome or '-' }}</td>
-                    <td><span class="badge bg-info">{{ v.itens.count() }}</span></td>
+                    <td style="font-size:12px;">
+                        {% for item in items[:3] %}
+                        <span style="display:inline-block;background:var(--bg-tertiary);padding:1px 6px;border-radius:4px;margin:1px;font-size:11px;">
+                            {{- item.produto.nome if item.produto else '?' -}}
+                        </span>
+                        {% endfor %}
+                        {% if items|length > 3 %}
+                        <span style="color:var(--text-muted);font-size:11px;">+{{ items|length - 3 }}</span>
+                        {% endif %}
+                    </td>
                     <td style="color: var(--text-primary); font-weight: 600;">R$ {{ "%.2f"|format(v.valor_total)|replace('.',',') }}</td>
                     <td>{% if v.forma_pagamento %}<span class="badge bg-secondary">{{ v.forma_pagamento }}</span>{% else %}-{% endif %}</td>
                     <td><span class="badge bg-success">R$ {{ "%.2f"|format(v.lucro_total)|replace('.',',') }}</span></td>
@@ -80,6 +144,57 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <!-- MOBILE: cards -->
+    <div class="vendas-cards">
+        {% for v in vendas %}
+        {% set items = v.itens %}
+        {% set items_count = items|length %}
+        <div class="venda-card">
+            <div class="card-top">
+                <span class="id-data">#{{ v.id }} · <strong>{{ v.data_venda.strftime('%d/%m/%Y') }}</strong></span>
+                {% if v.forma_pagamento %}
+                <span class="pagamento">{{ v.forma_pagamento }}</span>
+                {% endif %}
+            </div>
+            <div class="card-middle">
+                <span class="cliente">{{ v.cliente_nome or '—' }}</span>
+                <span class="total">R$ {{ "%.2f"|format(v.valor_total)|replace('.',',') }}</span>
+            </div>
+            <div class="card-bottom">
+                <span style="font-size:12px;color:var(--text-muted,#888);">
+                    {{ items_count }} item{% if items_count != 1 %}s{% endif %}
+                </span>
+                <div style="font-size:11px;color:var(--text-muted);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    {%- for item in items[:3] -%}
+                        {{ item.produto.nome if item.produto else '?' }}{{ ', ' if not loop.last }}
+                    {%- endfor -%}
+                </div>
+                <div class="acoes">
+                    <a href="{{ url_for('vendas.detalhes', id=v.id) }}" aria-label="Detalhes">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <form action="{{ url_for('vendas.excluir', id=v.id) }}" method="POST" class="d-inline"
+                          onsubmit="return confirm('Cancelar esta venda? O estoque ser\u00e1 restaurado.')">
+                        <button type="submit" aria-label="Cancelar venda">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state" style="grid-column:1/-1;padding:40px 0;">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="opacity:0.15;margin-bottom:12px">
+                <rect x="10" y="18" width="44" height="34" rx="4" stroke="#2c2c2c" stroke-width="2" fill="none"/>
+                <path d="M10 26h44" stroke="#2c2c2c" stroke-width="2"/>
+                <circle cx="22" cy="38" r="4" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
+                <circle cx="42" cy="38" r="4" stroke="#2c2c2c" stroke-width="1.5" fill="none"/>
+                <path d="M22 38l20-4" stroke="#2c2c2c" stroke-width="1.5"/>
+            </svg>
+            <p>Nenhuma venda no período</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

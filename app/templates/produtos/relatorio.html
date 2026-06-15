@@ -67,6 +67,7 @@
         <thead>
             <tr>
                 <th style="width:40px;">#</th>
+                <th style="width:40px;"></th>
                 <th>Produto</th>
                 <th style="width:100px;">Categoria</th>
                 <th style="width:90px;">Preço</th>
@@ -77,6 +78,12 @@
             {% for p in produtos %}
             <tr>
                 <td>{{ loop.index }}</td>
+                <td>
+                    {% if p.imagem %}
+                    <img src="/static/uploads/{{ p.imagem.replace('.', '_thumb.') }}"
+                         style="width:32px;height:32px;object-fit:cover;border-radius:4px;">
+                    {% endif %}
+                </td>
                 <td>{{ p.nome }}</td>
                 <td>{{ p.categoria_nome }}</td>
                 <td>R$ {{ '%.2f'|format(p.preco_venda)|replace('.',',') }}</td>

@@ -8,7 +8,7 @@
             var scrollTop = window.scrollY;
             var docHeight = document.documentElement.scrollHeight - window.innerHeight;
             progressBar.style.width = (docHeight > 0 ? (scrollTop / docHeight) * 100 : 0) + '%';
-        });
+        }, { passive: true });
     }
 
     // ===== RIPPLE EFFECT =====
@@ -84,6 +84,23 @@
         localStorage.setItem('theme', theme);
         var btn = document.querySelector('.theme-toggle');
         if (btn) btn.innerHTML = theme === 'dark' ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+            metaTheme.setAttribute('content', theme === 'dark' ? '#1a1a1a' : '#f5f0eb');
+        }
+        if (typeof Chart !== 'undefined') {
+            if (theme === 'dark') {
+                Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(30,30,30,0.98)';
+                Chart.defaults.plugins.tooltip.titleColor = '#e8e8e8';
+                Chart.defaults.plugins.tooltip.bodyColor = '#a8a8a8';
+                Chart.defaults.plugins.tooltip.borderColor = '#444';
+            } else {
+                Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(245,240,235,0.98)';
+                Chart.defaults.plugins.tooltip.titleColor = '#2c2c2c';
+                Chart.defaults.plugins.tooltip.bodyColor = '#5c5550';
+                Chart.defaults.plugins.tooltip.borderColor = '#e8e0d8';
+            }
+        }
     }
 
     var savedTheme = localStorage.getItem('theme');
@@ -194,30 +211,32 @@
     document.querySelectorAll('[onclick*="confirm"]').forEach(function(el) { replaceConfirm(el, 'onclick'); });
     document.querySelectorAll('[onsubmit*="confirm"]').forEach(function(el) { replaceConfirm(el, 'onsubmit'); });
 
-    // ===== CURSOR FOLLOWER =====
-    var cursorDot = document.createElement('div');
-    cursorDot.className = 'cursor-dot';
-    document.body.appendChild(cursorDot);
+    // ===== CURSOR FOLLOWER (desktop only) =====
+    if (!window.matchMedia || !window.matchMedia('(pointer: coarse)').matches) {
+        var cursorDot = document.createElement('div');
+        cursorDot.className = 'cursor-dot';
+        document.body.appendChild(cursorDot);
 
-    var mouseX = -100, mouseY = -100, dotX = -100, dotY = -100;
-    document.addEventListener('mousemove', function(e) {
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-    });
+        var mouseX = -100, mouseY = -100, dotX = -100, dotY = -100;
+        document.addEventListener('mousemove', function(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        }, { passive: true });
 
-    function animateCursor() {
-        dotX += (mouseX - dotX) * 0.15;
-        dotY += (mouseY - dotY) * 0.15;
-        cursorDot.style.left = dotX + 'px';
-        cursorDot.style.top = dotY + 'px';
-        requestAnimationFrame(animateCursor);
+        function animateCursor() {
+            dotX += (mouseX - dotX) * 0.15;
+            dotY += (mouseY - dotY) * 0.15;
+            cursorDot.style.left = dotX + 'px';
+            cursorDot.style.top = dotY + 'px';
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        document.querySelectorAll('.btn, .glass-card, a, .kpi-card').forEach(function(el) {
+            el.addEventListener('mouseenter', function() { cursorDot.classList.add('hovering'); });
+            el.addEventListener('mouseleave', function() { cursorDot.classList.remove('hovering'); });
+        });
     }
-    animateCursor();
-
-    document.querySelectorAll('.btn, .glass-card, a, .kpi-card').forEach(function(el) {
-        el.addEventListener('mouseenter', function() { cursorDot.classList.add('hovering'); });
-        el.addEventListener('mouseleave', function() { cursorDot.classList.remove('hovering'); });
-    });
 
     // ===== HAMBURGER MOBILE =====
     var hamburger = document.querySelector('.hamburger');
@@ -342,6 +361,141 @@
         }
     }
 
+    // ===== COMMAND PALETTE (Ctrl+K / Cmd+K) =====
+    (function() {
+        var overlay = document.getElementById('cmdPalette');
+        var input = document.getElementById('cmdInput');
+        var results = document.getElementById('cmdResults');
+        if (!overlay || !input || !results) return;
+
+        var timer;
+        var items = [];
+        var highlightIdx = -1;
+
+        function openPalette() {
+            overlay.classList.add('open');
+            setTimeout(function() { input.focus(); }, 100);
+            highlightIdx = -1;
+            if (input.value.length >= 2) buscar(input.value);
+        }
+
+        function closePalette() {
+            overlay.classList.remove('open');
+            input.blur();
+            highlightIdx = -1;
+        }
+
+        function buscar(q) {
+            clearTimeout(timer);
+            q = q.trim().toLowerCase();
+            if (q.length < 2) {
+                results.innerHTML = '<div class="cmd-empty">Digite pelo menos 2 caracteres para buscar</div>';
+                items = [];
+                return;
+            }
+            timer = setTimeout(function() {
+                fetch('/api/search?q=' + encodeURIComponent(q))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        items = data;
+                        renderResults(data);
+                    });
+            }, 200);
+        }
+
+        function renderResults(data) {
+            if (data.length === 0) {
+                results.innerHTML = '<div class="cmd-empty">Nenhum resultado encontrado</div>';
+                return;
+            }
+            var groups = {};
+            data.forEach(function(item) {
+                if (!groups[item.typeLabel]) groups[item.typeLabel] = [];
+                groups[item.typeLabel].push(item);
+            });
+            var html = '';
+            var order = ['Produto', 'Venda', 'Insumo', 'Categoria'];
+            order.forEach(function(label) {
+                var arr = groups[label];
+                if (!arr) return;
+                html += '<div class="cmd-group">' + label + '</div>';
+                arr.forEach(function(item) {
+                    html += '<a class="cmd-item" href="' + item.url + '">' +
+                        '<div class="cmd-icon"><i class="bi bi-' + item.icon + '"></i></div>' +
+                        '<div class="cmd-text">' +
+                            '<div class="cmd-label">' + item.label + '</div>' +
+                            '<div class="cmd-sub">' + (item.sub || '') + '</div>' +
+                        '</div>' +
+                        '<span class="cmd-badge">' + (item.type === 'produto' ? 'Produto' : item.type === 'venda' ? 'Venda' : '') + '</span>' +
+                    '</a>';
+                });
+            });
+            results.innerHTML = html;
+            results.querySelectorAll('.cmd-item').forEach(function(el, i) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    closePalette();
+                    window.location.href = el.getAttribute('href');
+                });
+            });
+            highlightIdx = -1;
+        }
+
+        function navigate(delta) {
+            var anchors = results.querySelectorAll('.cmd-item');
+            if (anchors.length === 0) return;
+            if (highlightIdx >= 0) anchors[highlightIdx].classList.remove('highlighted');
+            highlightIdx += delta;
+            if (highlightIdx < 0) highlightIdx = anchors.length - 1;
+            if (highlightIdx >= anchors.length) highlightIdx = 0;
+            anchors[highlightIdx].classList.add('highlighted');
+            anchors[highlightIdx].scrollIntoView({ block: 'nearest' });
+        }
+
+        // Keyboard: Ctrl+K / Cmd+K to open
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                if (overlay.classList.contains('open')) closePalette();
+                else openPalette();
+            }
+            if (e.key === 'Escape' && overlay.classList.contains('open')) {
+                closePalette();
+            }
+        });
+
+        input.addEventListener('input', function() {
+            buscar(input.value);
+        });
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); navigate(1); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); navigate(-1); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var anchors = results.querySelectorAll('.cmd-item');
+                if (highlightIdx >= 0 && anchors[highlightIdx]) {
+                    closePalette();
+                    window.location.href = anchors[highlightIdx].getAttribute('href');
+                } else if (anchors.length > 0) {
+                    closePalette();
+                    window.location.href = anchors[0].getAttribute('href');
+                }
+            }
+        });
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closePalette();
+        });
+
+        // Close on blur if clicked outside
+        input.addEventListener('blur', function() {
+            setTimeout(function() {
+                if (!overlay.contains(document.activeElement)) closePalette();
+            }, 200);
+        });
+    })();
+
     // ===== KPI SPARKLINES =====
     document.querySelectorAll('.kpi-sparkline[data-values]').forEach(function(el) {
         var values = el.getAttribute('data-values').split(',').map(Number);
@@ -402,10 +556,18 @@
 // ===== CHART.JS TOOLTIP DEFAULTS =====
 (function() {
     if (typeof Chart === 'undefined') return;
-    Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(245,240,235,0.98)';
-    Chart.defaults.plugins.tooltip.titleColor = '#2c2c2c';
-    Chart.defaults.plugins.tooltip.bodyColor = '#5c5550';
-    Chart.defaults.plugins.tooltip.borderColor = '#e8e0d8';
+    var theme = document.documentElement.getAttribute('data-theme') || 'light';
+    if (theme === 'dark') {
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(30,30,30,0.98)';
+        Chart.defaults.plugins.tooltip.titleColor = '#e8e8e8';
+        Chart.defaults.plugins.tooltip.bodyColor = '#a8a8a8';
+        Chart.defaults.plugins.tooltip.borderColor = '#444';
+    } else {
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(245,240,235,0.98)';
+        Chart.defaults.plugins.tooltip.titleColor = '#2c2c2c';
+        Chart.defaults.plugins.tooltip.bodyColor = '#5c5550';
+        Chart.defaults.plugins.tooltip.borderColor = '#e8e0d8';
+    }
     Chart.defaults.plugins.tooltip.borderWidth = 1;
     Chart.defaults.plugins.tooltip.padding = 12;
     Chart.defaults.plugins.tooltip.cornerRadius = 6;
@@ -431,5 +593,32 @@
                 e.returnValue = '';
             }
         });
+    });
+})();
+
+// ===== BADGE API (PWA app badge) =====
+(function() {
+    if (!navigator.setAppBadge && !navigator.setExperimentalAppBadge) return;
+
+    function updateBadge(count) {
+        count = count || 0;
+        var sw = navigator.serviceWorker;
+        if (sw && sw.controller) {
+            sw.controller.postMessage({ type: count > 0 ? 'SET_BADGE' : 'CLEAR_BADGE', count: count });
+        }
+    }
+
+    // Check for low stock count
+    var baixoEstoqueEl = document.querySelector('[data-baixo-estoque-count]');
+    if (baixoEstoqueEl) {
+        var count = parseInt(baixoEstoqueEl.getAttribute('data-baixo-estoque-count')) || 0;
+        updateBadge(count);
+    }
+
+    // Listen for badge updates from server pushes
+    navigator.serviceWorker.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'BADGE_UPDATE') {
+            updateBadge(e.data.count);
+        }
     });
 })();

@@ -1,10 +1,14 @@
 from datetime import date, timedelta, datetime
 from sqlalchemy import func
+from sqlalchemy.orm import subqueryload
+from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from app.extensions import db, csrf
+from app.extensions import db
 from app.models.venda import Venda
 from app.models.venda_item import VendaItem
 from app.models.produto import Produto
+from app.models.categoria import Categoria
+from app.models.taxa_configuracao import TaxaConfiguracao
 
 bp = Blueprint('vendas', __name__)
 
@@ -15,12 +19,22 @@ def listar():
     fim = datetime.strptime(request.args.get('data_fim', hoje.isoformat()), '%Y-%m-%d').date()
     ini = datetime.strptime(request.args.get(
         'data_ini', (hoje - timedelta(days=30)).isoformat()), '%Y-%m-%d').date()
+    busca = request.args.get('busca', '').strip()
 
-    vendas = Venda.query.filter(
+    query = Venda.query.filter(
         Venda.data_venda >= ini, Venda.data_venda <= fim
+    )
+    if busca:
+        query = query.join(VendaItem).join(Produto).filter(
+            Venda.cliente_nome.ilike(f'%{busca}%') |
+            Produto.nome.ilike(f'%{busca}%')
+        ).distinct()
+
+    vendas = query.options(
+        subqueryload(Venda.itens).subqueryload(VendaItem.produto)
     ).order_by(Venda.data_venda.desc(), Venda.created_at.desc()).all()
 
-    return render_template('vendas/listar.html', vendas=vendas, data_ini=ini, data_fim=fim)
+    return render_template('vendas/listar.html', vendas=vendas, data_ini=ini, data_fim=fim, busca=busca)
 
 
 @bp.route('/nova', methods=['GET', 'POST'])
@@ -66,7 +80,7 @@ def nova():
             db.session.add(item)
             produto.qtd_estoque -= qtd_venda
 
-        if venda.itens.count() == 0:
+        if len(venda.itens) == 0:
             flash('Adicione ao menos um produto à venda.', 'danger')
             db.session.rollback()
             return redirect(url_for('vendas.nova'))
@@ -85,7 +99,9 @@ def nova():
 
 @bp.route('/<int:id>')
 def detalhes(id):
-    venda = Venda.query.get_or_404(id)
+    venda = Venda.query.options(
+        subqueryload(Venda.itens).subqueryload(VendaItem.produto)
+    ).get_or_404(id)
     return render_template('vendas/detalhes.html', venda=venda)
 
 
@@ -99,7 +115,7 @@ def recibo(id):
 @bp.route('/<int:id>/excluir', methods=['POST'])
 def excluir(id):
     venda = Venda.query.get_or_404(id)
-    for item in venda.itens.all():
+    for item in venda.itens:
         produto = Produto.query.get(item.produto_id)
         if produto:
             produto.qtd_estoque += item.qtd
@@ -157,11 +173,22 @@ def api_produto(id):
     })
 
 
+@bp.route('/api/clientes')
+def api_clientes():
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    clientes = db.session.query(Venda.cliente_nome).filter(
+        Venda.cliente_nome.isnot(None),
+        Venda.cliente_nome != '',
+        Venda.cliente_nome.ilike(f'%{q}%')
+    ).distinct().limit(8).all()
+    return jsonify([c[0] for c in clientes])
+
+
 @bp.route('/rapida')
 def rapida():
-    produtos_query = Produto.query.filter(
-        Produto.ativo == True, Produto.qtd_estoque > 0
-    ).order_by(Produto.nome).all()
+    produtos_query = Produto.query.filter_by(ativo=True).order_by(Produto.nome).all()
     produtos = [{
         'id': p.id, 'nome': p.nome, 'preco_venda': p.preco_venda,
         'custo_producao': p.custo_producao, 'qtd_estoque': p.qtd_estoque,
@@ -171,7 +198,6 @@ def rapida():
 
 
 @bp.route('/rapida/finalizar', methods=['POST'])
-@csrf.exempt
 def rapida_finalizar():
     data = request.get_json()
     if not data:
@@ -180,6 +206,7 @@ def rapida_finalizar():
     itens = data.get('itens', [])
     cliente = data.get('cliente', '').strip()
     forma_pgto = data.get('forma_pagamento', '').strip()
+    observacao = data.get('observacao', '').strip()
 
     if not itens:
         return jsonify({'erro': 'Nenhum item na venda'}), 400
@@ -187,24 +214,30 @@ def rapida_finalizar():
     venda = Venda(
         data_venda=date.today(),
         cliente_nome=cliente or None,
-        forma_pagamento=forma_pgto or None
+        forma_pagamento=forma_pgto or None,
+        observacao=observacao or None
     )
     db.session.add(venda)
     db.session.flush()
 
-    for item in itens:
+    erros_itens = []
+
+    for i, item in enumerate(itens):
         try:
             produto_id = int(item['id'])
             qtd = int(item['qtd'])
             preco = float(item['preco'])
         except (ValueError, KeyError):
+            erros_itens.append(f'Item {i + 1}: dados inválidos')
             continue
         if qtd <= 0:
+            erros_itens.append(f'Item {i + 1}: quantidade inválida')
             continue
         produto = Produto.query.get(produto_id)
         if not produto:
+            erros_itens.append(f'Item {i + 1}: produto não encontrado (ID {produto_id})')
             continue
-        if produto.qtd_estoque < qtd:
+        if not produto.avulso and produto.qtd_estoque < qtd:
             return jsonify({'erro': f'Estoque insuficiente para "{produto.nome}"'}), 400
 
         vi = VendaItem(
@@ -213,8 +246,96 @@ def rapida_finalizar():
             custo_unitario=produto.custo_producao
         )
         db.session.add(vi)
-        produto.qtd_estoque -= qtd
+        if not produto.avulso:
+            produto.qtd_estoque -= qtd
+
+    if not venda.itens:
+        return jsonify({'erro': 'Nenhum item válido na venda'}), 400
 
     venda.recalcular_totais()
+
+    if forma_pgto:
+        cfg = TaxaConfiguracao.query.filter_by(forma_pagamento=forma_pgto).first()
+        if cfg and cfg.taxa_percentual > 0:
+            venda.taxa_percentual = cfg.taxa_percentual
+            venda.taxa_valor = round(venda.valor_total * cfg.taxa_percentual / 100, 2)
+            venda.lucro_total = round(venda.lucro_total - venda.taxa_valor, 2)
+
     db.session.commit()
-    return jsonify({'ok': True, 'venda_id': venda.id, 'total': venda.valor_total})
+    resposta = {'ok': True, 'venda_id': venda.id, 'total': venda.valor_total}
+    if erros_itens:
+        resposta['aviso'] = f'{len(erros_itens)} item(ns) ignorado(s)'
+        resposta['erros_itens'] = erros_itens
+    return jsonify(resposta)
+
+
+@bp.route('/rapida/criar-avulso', methods=['POST'])
+def criar_avulso():
+    data = request.get_json()
+    if not data:
+        return jsonify({'erro': 'Dados inválidos'}), 400
+
+    nome = data.get('nome', '').strip()
+    preco = data.get('preco', 0)
+    categoria_nome = data.get('categoria', '').strip()
+
+    if not nome:
+        return jsonify({'erro': 'Nome do produto é obrigatório'}), 400
+
+    try:
+        preco = float(preco)
+    except (ValueError, TypeError):
+        preco = 0
+
+    categoria_id = None
+    if categoria_nome:
+        cat = Categoria.query.filter_by(nome=categoria_nome).first()
+        if not cat:
+            cat = Categoria(nome=categoria_nome)
+            db.session.add(cat)
+            db.session.flush()
+        categoria_id = cat.id
+
+    produto = Produto(
+        nome=nome,
+        preco_venda=preco,
+        ativo=False,
+        avulso=True,
+        qtd_estoque=0,
+        categoria_id=categoria_id,
+    )
+    db.session.add(produto)
+    try:
+        db.session.flush()
+        produto.recalcular_custo()
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        for i in range(2, 100):
+            novo_nome = f"{nome} ({i})"
+            existente = Produto.query.filter_by(nome=novo_nome).first()
+            if not existente:
+                produto = Produto(
+                    nome=novo_nome, preco_venda=preco,
+                    ativo=False, avulso=True, qtd_estoque=0,
+                    categoria_id=categoria_id,
+                )
+                db.session.add(produto)
+                db.session.flush()
+                produto.recalcular_custo()
+                db.session.commit()
+                return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda})
+        return jsonify({'erro': 'Muitos produtos com este nome.'}), 400
+
+    return jsonify({'id': produto.id, 'nome': produto.nome, 'preco': produto.preco_venda})
+
+
+@bp.route('/<int:id>/desfazer', methods=['POST'])
+def desfazer(id):
+    venda = Venda.query.get_or_404(id)
+    for item in venda.itens:
+        if item.produto and not item.produto.avulso:
+            item.produto.qtd_estoque += item.qtd
+    db.session.delete(venda)
+    db.session.commit()
+    return jsonify({'ok': True})

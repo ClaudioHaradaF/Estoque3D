@@ -17,10 +17,11 @@
                             <input type="date" class="form-control" id="data_venda" name="data_venda"
                                    value="{{ hoje.isoformat() }}">
                         </div>
-                        <div class="col-md-4">
+<div class="col-md-4" style="position:relative;">
                             <label for="cliente_nome" class="form-label">Cliente</label>
                             <input type="text" class="form-control" id="cliente_nome" name="cliente_nome"
-                                   placeholder="Nome do cliente (opcional)">
+                                   placeholder="Nome do cliente (opcional)" autocomplete="off">
+                            <div id="clienteSugestoes" class="autocomplete-suggestions" style="display:none;"></div>
                         </div>
                         <div class="col-md-4">
                             <label for="observacao" class="form-label">Observação</label>
@@ -224,5 +225,109 @@ document.getElementById('formVenda').addEventListener('submit', function(e) {
         alert('Adicione ao menos um produto à venda.');
     }
 });
+
+// ===== AUTO-COMPLETE CLIENTE =====
+(function() {
+    var input = document.getElementById('cliente_nome');
+    var sugestoes = document.getElementById('clienteSugestoes');
+    if (!input || !sugestoes) return;
+    var timer;
+
+    input.addEventListener('input', function() {
+        clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { sugestoes.style.display = 'none'; return; }
+        timer = setTimeout(function() {
+            fetch('/vendas/api/clientes?q=' + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    sugestoes.innerHTML = '';
+                    if (data.length === 0) { sugestoes.style.display = 'none'; return; }
+                    data.forEach(function(nome) {
+                        var div = document.createElement('div');
+                        div.className = 'autocomplete-item';
+                        div.textContent = nome;
+                        div.addEventListener('click', function() {
+                            input.value = nome;
+                            sugestoes.style.display = 'none';
+                        });
+                        sugestoes.appendChild(div);
+                    });
+                    sugestoes.style.display = 'block';
+                });
+        }, 200);
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(function() { sugestoes.style.display = 'none'; }, 200);
+    });
+    input.addEventListener('focus', function() {
+        if (sugestoes.children.length > 0) sugestoes.style.display = 'block';
+    });
+})();
+
+// ===== AUTO-SAVE DRAFT =====
+(function() {
+    var DRAFT_KEY = 'venda_draft';
+    var form = document.getElementById('formVenda');
+    if (!form) return;
+
+    function saveDraft() {
+        var data_venda = document.getElementById('data_venda').value;
+        var cliente_nome = document.getElementById('cliente_nome').value;
+        var observacao = document.getElementById('observacao').value;
+        var itens = [];
+        document.querySelectorAll('#itensBody tr[data-produto-id]').forEach(function(tr) {
+            itens.push({
+                produto_id: tr.dataset.produtoId,
+                nome: tr.querySelector('td:first-child').textContent,
+                qtd: tr.querySelector('input[name="quantidade[]"]').value,
+                preco: tr.querySelector('input[name="preco[]"]').value
+            });
+        });
+        if (itens.length === 0 && !cliente_nome && !observacao) {
+            localStorage.removeItem(DRAFT_KEY);
+            return;
+        }
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            data_venda: data_venda,
+            cliente_nome: cliente_nome,
+            observacao: observacao,
+            itens: itens
+        }));
+    }
+
+    function restoreDraft() {
+        var saved = localStorage.getItem(DRAFT_KEY);
+        if (!saved) return;
+        try {
+            var draft = JSON.parse(saved);
+            if (!draft.itens || draft.itens.length === 0) { localStorage.removeItem(DRAFT_KEY); return; }
+            if (confirm('Há um rascunho de venda salvo. Deseja restaurá-lo?')) {
+                document.getElementById('data_venda').value = draft.data_venda || '';
+                document.getElementById('cliente_nome').value = draft.cliente_nome || '';
+                document.getElementById('observacao').value = draft.observacao || '';
+                draft.itens.forEach(function(item) {
+                    var opt = document.querySelector('#selectProduto option[value="' + item.produto_id + '"]');
+                    if (opt) {
+                        document.getElementById('selectProduto').value = item.produto_id;
+                        document.getElementById('inputQuantidade').value = item.qtd;
+                        document.getElementById('inputPreco').value = item.preco;
+                        adicionarItem();
+                    }
+                });
+            } else {
+                localStorage.removeItem(DRAFT_KEY);
+            }
+        } catch(e) {
+            localStorage.removeItem(DRAFT_KEY);
+        }
+    }
+
+    restoreDraft();
+    setInterval(saveDraft, 5000);
+    window.addEventListener('beforeunload', saveDraft);
+    form.addEventListener('submit', function() { localStorage.removeItem(DRAFT_KEY); });
+})();
 </script>
 {% endblock %}

@@ -7,5 +7,6 @@ from app.models.venda_item import VendaItem
 from app.models.usuario import Usuario
 from app.models.catalogo import Catalogo, CatalogoItem
 from app.models.meta import Meta
+from app.models.taxa_configuracao import TaxaConfiguracao
 
-__all__ = ['Categoria', 'Insumo', 'Produto', 'ProdutoInsumo', 'Venda', 'VendaItem', 'Usuario', 'Catalogo', 'CatalogoItem', 'Meta']
+__all__ = ['Categoria', 'Insumo', 'Produto', 'ProdutoInsumo', 'Venda', 'VendaItem', 'Usuario', 'Catalogo', 'CatalogoItem', 'Meta', 'TaxaConfiguracao']

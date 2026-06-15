@@ -10,7 +10,7 @@
 
 {% block content %}
 <div class="glass-card">
-    <div class="table-container" style="border: none;">
+    <div class="table-container desktop-table" style="border: none;">
         <table>
             <thead>
                 <tr>
@@ -51,6 +51,35 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards">
+        {% for u in usuarios %}
+        <div class="mobile-card-item">
+            <div class="card-row">
+                <span class="card-label">E-mail</span>
+                <span class="card-value">
+                    {{ u.email }}
+                    {% if u.email == 'harborio3d@gmail.com' %}
+                    <span class="card-badge" style="background:#2d7d5a;color:#fff;">Admin</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-actions">
+                <a href="{{ url_for('usuarios.editar', id=u.id) }}" title="Editar"><i class="bi bi-pencil"></i></a>
+                {% if u.email != 'harborio3d@gmail.com' %}
+                <form action="{{ url_for('usuarios.excluir', id=u.id) }}" method="POST"
+                      onsubmit="return confirm('Excluir usuário {{ u.email }}?')">
+                    <button type="submit" title="Excluir"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            <p>Nenhum usuário cadastrado.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

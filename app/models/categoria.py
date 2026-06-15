@@ -8,7 +8,7 @@ class Categoria(db.Model):
     nome = db.Column(db.String(100), nullable=False, unique=True)
     descricao = db.Column(db.Text, nullable=True)
 
-    produtos = db.relationship('Produto', backref='categoria_rel', lazy='dynamic')
+    produtos = db.relationship('Produto', back_populates='categoria_rel', lazy='dynamic')
 
     def __repr__(self):
         return f'<Categoria {self.nome}>'

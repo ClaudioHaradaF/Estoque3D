@@ -60,6 +60,8 @@ def configurar_ngrok(token):
         return False
 
 
+CREDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Estoque3D_creds')
+
 def main():
     limpar_ngrok()
     from app.services.backup import criar_backup
@@ -75,7 +77,7 @@ def main():
     time.sleep(2)
 
     if not verificar_ngrok():
-        arquivo_token = os.path.join(os.path.dirname(__file__), 'ngrok_token.txt')
+        arquivo_token = os.path.join(CREDS_DIR, 'ngrok_token.txt')
         token = os.environ.get('NGROK_AUTHTOKEN')
         if not token and os.path.exists(arquivo_token):
             with open(arquivo_token, 'r') as f:
@@ -103,7 +105,7 @@ def main():
             input("\nPressione Enter para sair...")
             return
 
-        arquivo_token = os.path.join(os.path.dirname(__file__), 'ngrok_token.txt')
+        arquivo_token = os.path.join(CREDS_DIR, 'ngrok_token.txt')
         with open(arquivo_token, 'w') as f:
             f.write(token)
 

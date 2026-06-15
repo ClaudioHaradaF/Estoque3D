@@ -32,7 +32,7 @@
                     </div>
                     <div class="col-md-3" style="color: var(--text-muted);">Estoque</div>
                     <div class="col-md-3">
-                        <span class="badge fs-6 {% if produto.qtd_estoque <= 5 %}bg-danger{% elif produto.qtd_estoque <= 10 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                        <span class="badge fs-6 {% if produto.qtd_estoque <= ESTOQUE_BAIXO_LIMITE %}bg-danger{% elif produto.qtd_estoque <= ESTOQUE_BAIXO_ALERTA %}bg-warning text-dark{% else %}bg-success{% endif %}">
                             {{ produto.qtd_estoque }}
                         </span>
                     </div>

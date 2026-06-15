@@ -140,6 +140,12 @@
                     <div class="mb-3">
                         <label for="imagem" class="form-label">Imagem</label>
                         <input type="file" class="form-control" id="imagem" name="imagem" accept="image/*">
+                        <div id="uploadProgress" style="display:none; margin-top:8px;">
+                            <div style="height:4px; background:var(--bg-tertiary); border-radius:2px; overflow:hidden;">
+                                <div id="uploadFill" style="height:100%; width:0%; background:var(--accent); border-radius:2px; transition:width 0.3s;"></div>
+                            </div>
+                            <small style="color:var(--text-muted); font-size:11px;">Processando imagem...</small>
+                        </div>
                         {% if produto and produto.imagem %}
                         <div class="mt-2">
                             <img src="{{ url_for('static', filename='uploads/' + produto.imagem) }}"
@@ -152,6 +158,18 @@
                     <hr style="border-color: var(--glass-border);">
                     <h5 style="font-weight: 700; margin-bottom: 4px;"><i class="bi bi-puzzle" style="color: #a78bfa;"></i> Insumos Vinculados</h5>
                     <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Selecione os insumos que compõem este produto e a quantidade usada em cada um.</p>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                        <input type="text" id="filtroInsumo" class="form-control form-control-sm"
+                               placeholder="Buscar insumo..." style="max-width: 250px;">
+                        <div class="form-check" style="margin: 0;">
+                            <input class="form-check-input" type="checkbox" id="mostrarVinculados"
+                                   style="background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.3);">
+                            <label class="form-check-label" for="mostrarVinculados" style="font-size: 13px; color: var(--text-muted);">
+                                Apenas vinculados
+                            </label>
+                        </div>
+                    </div>
 
                     <div class="table-container" style="margin-bottom: 20px;">
                         <table id="tabelaInsumos">
@@ -172,7 +190,7 @@
                                         {% set pi.qtd = pi_obj.qtd_usada %}
                                     {% endfor %}
                                 {% endif %}
-                                <tr class="insumo-row {% if not pi.qtd %}d-none d-md-table-row{% endif %}">
+                                 <tr class="insumo-row">
                                     <td>
                                         <div class="form-check" style="margin: 0;">
                                             <input class="form-check-input insumo-check" type="checkbox"
@@ -270,24 +288,38 @@ function calcularCustos() {
 document.addEventListener('DOMContentLoaded', function() {
     const checks = document.querySelectorAll('.insumo-check');
     const qtds = document.querySelectorAll('.insumo-qtd');
+    const filtroInput = document.getElementById('filtroInsumo');
+    const toggleVinculados = document.getElementById('mostrarVinculados');
 
     function recalcular() {
-        let total = 0;
-        checks.forEach(function(cb, i) {
-            const row = cb.closest('tr');
-            const qtd = parseFloat(qtds[i].value) || 0;
-            if (cb.checked && qtd > 0) {
-                row.classList.remove('d-none');
-            }
-        });
         calcularCustos();
+    }
+
+    function filtrarInsumos() {
+        const termo = filtroInput.value.trim().toLowerCase();
+        const apenasVinculados = toggleVinculados.checked;
+
+        document.querySelectorAll('.insumo-row').forEach(function(row) {
+            const cb = row.querySelector('.insumo-check');
+            const nome = row.querySelector('.form-check-label').textContent.toLowerCase();
+            const vinculado = cb.checked;
+            var mostrar = true;
+
+            if (apenasVinculados && !vinculado) {
+                mostrar = false;
+            }
+            if (termo && !nome.includes(termo)) {
+                mostrar = false;
+            }
+
+            row.style.display = mostrar ? '' : 'none';
+        });
     }
 
     checks.forEach(function(cb, i) {
         cb.addEventListener('change', function() {
             const row = this.closest('tr');
             if (this.checked) {
-                row.classList.remove('d-none');
                 if (!qtds[i].value || parseFloat(qtds[i].value) <= 0) {
                     qtds[i].value = 1;
                 }
@@ -295,12 +327,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 qtds[i].value = 0;
             }
             recalcular();
+            setTimeout(filtrarInsumos, 50);
         });
         qtds[i].addEventListener('input', recalcular);
     });
 
+    filtroInput.addEventListener('input', filtrarInsumos);
+    toggleVinculados.addEventListener('change', filtrarInsumos);
+
     recalcular();
     calcularCustos();
+});
+
+document.getElementById('imagem')?.addEventListener('change', function() {
+    if (this.files.length > 0) {
+        var bar = document.getElementById('uploadProgress');
+        var fill = document.getElementById('uploadFill');
+        bar.style.display = 'block';
+        fill.style.width = '60%';
+        setTimeout(function() { fill.style.width = '100%'; }, 200);
+    }
 });
 </script>
 {% endblock %}

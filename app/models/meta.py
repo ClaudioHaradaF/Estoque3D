@@ -1,14 +1,16 @@
 from datetime import datetime, timezone, date
 from app.extensions import db
+from app.models.enums import TipoMeta, CategoriaMeta
+import sqlalchemy as sa
 
 
 class Meta(db.Model):
     __tablename__ = 'meta'
 
     id = db.Column(db.Integer, primary_key=True)
-    tipo = db.Column(db.String(20), nullable=False)
+    tipo = db.Column(sa.Enum(TipoMeta, values_callable=lambda x: [e.value for e in x]), nullable=False)
     descricao = db.Column(db.String(300), nullable=False)
-    categoria = db.Column(db.String(20), nullable=False, default='financeiro')
+    categoria = db.Column(sa.Enum(CategoriaMeta, values_callable=lambda x: [e.value for e in x]), nullable=False, default=CategoriaMeta.FINANCEIRO)
     valor_meta = db.Column(db.Float, nullable=False, default=0)
     valor_atual = db.Column(db.Float, nullable=False, default=0)
     data_ini = db.Column(db.Date, nullable=False)

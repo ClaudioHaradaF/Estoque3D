@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block titulo %}Taxas das Maquininhas{% endblock %}
+{% block page_title %}Taxas das Maquininhas{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="glass-card">
+            <div class="card-body" style="padding:36px;">
+                <p class="text-muted mb-4" style="font-size:14px;">
+                    Configure as taxas percentuais aplicadas sobre vendas realizadas com cada forma de pagamento.
+                    O valor será descontado automaticamente do lucro da venda.
+                </p>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="taxa_dinheiro" class="form-label">Dinheiro (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control"
+                               id="taxa_dinheiro" name="taxa_dinheiro"
+                               value="{{ taxas.dinheiro }}" placeholder="0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="taxa_credito" class="form-label">Crédito (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control"
+                               id="taxa_credito" name="taxa_credito"
+                               value="{{ taxas.credito }}" placeholder="2.5">
+                    </div>
+                    <div class="mb-3">
+                        <label for="taxa_debito" class="form-label">Débito (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control"
+                               id="taxa_debito" name="taxa_debito"
+                               value="{{ taxas.debito }}" placeholder="1.2">
+                    </div>
+                    <div class="mb-3">
+                        <label for="taxa_pix" class="form-label">PIX (%)</label>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control"
+                               id="taxa_pix" name="taxa_pix"
+                               value="{{ taxas.pix }}" placeholder="0">
+                    </div>
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Voltar</a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-lg"></i> Salvar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

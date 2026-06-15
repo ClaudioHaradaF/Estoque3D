@@ -20,7 +20,7 @@
 
 {% block content %}
 <div class="glass-card">
-    <div class="table-container">
+    <div class="table-container desktop-table">
         <table>
             <thead>
                 <tr>
@@ -56,6 +56,35 @@
                 {% endif %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards">
+        {% for item in ranking %}
+        <div class="mobile-card-item">
+            <div class="card-row">
+                <span class="card-label">#{{ loop.index }}</span>
+                <span class="card-value">{{ item.nome }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Qtd Vendida</span>
+                <span class="card-value">
+                    <span class="card-badge" style="background:{% if item.qtd_total > 10 %}#2d7d5a{% elif item.qtd_total > 3 %}#e6a817{% else %}var(--text-muted){% endif %};color:#fff;">{{ item.qtd_total }}</span>
+                </span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Valor Total</span>
+                <span class="card-value">R$ {{ '%.2f'|format(item.valor_total)|replace('.',',') }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Preço Unit.</span>
+                <span class="card-value" style="color:var(--text-muted);">R$ {{ '%.2f'|format(item.preco_venda)|replace('.',',') }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <p>Nenhuma venda no período selecionado.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

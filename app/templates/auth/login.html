@@ -2,17 +2,25 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f5f0eb">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Estoque3D — Login</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="washi-overlay"></div>
-    <div class="loading-screen">
-        <div class="loading-enso"></div>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="enso-loader"></div>
+        <div class="loading-label">Carregando</div>
     </div>
+    <noscript>
+        <style>#loadingScreen { display: none !important; }</style>
+        <div class="alert alert-danger" style="margin:20px;text-align:center;">
+            JavaScript está desativado. Ative-o para usar o sistema.
+        </div>
+    </noscript>
 
     <main class="main-content" style="padding-top: 0;">
         <div class="page-body">
@@ -26,7 +34,7 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-            <div class="row justify-content-center" style="margin-top: 80px;">
+            <div class="row justify-content-center" style="margin-top: min(40px, 8vh);">
                 <div class="col-md-5">
                     <div style="text-align:center; margin-bottom: 24px;">
                         <div style="display:inline-block; background:rgba(255,255,255,0.9); padding:12px 24px; border-radius:12px;">
@@ -38,6 +46,7 @@
                     <div class="glass-card">
                         <div class="card-body" style="padding: 36px;">
                             <form method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <div class="mb-4">
                                     <label for="email" class="form-label">E-mail</label>
                                     <input type="email" class="form-control" id="email" name="email"
@@ -59,7 +68,6 @@
         </div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </body>
 </html>

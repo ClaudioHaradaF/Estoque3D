@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -14,4 +15,8 @@ class Config:
     UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'harborio3d@gmail.com')
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '3113311456')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
+    ESTOQUE_BAIXO_LIMITE = 5
+    ESTOQUE_BAIXO_ALERTA = 10
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
+    SESSION_PERMANENT = True
