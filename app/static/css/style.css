@@ -1225,28 +1225,15 @@ hr {
     --bg-tertiary: #2a2a2a;
     --text-primary: #e8e8e8;
     --text-secondary: #a8a8a8;
---text-muted: #a0a0a0;
+    --text-muted: #a0a0a0;
     --accent: #e85050;
     --accent-hover: #ff6666;
-}
-
-[data-theme="dark"] {
-    --bg: #121212;
-    --bg-primary: #121212;
-    --bg-secondary: #1e1e1e;
-    --bg-tertiary: #2a2a2a;
-    --text-primary: #e8e8e8;
-    --text-secondary: #a8a8a8;
-    --text-muted: #a0a0a0;
-        --accent: #e85050;
-        --accent-hover: #ff6666;
-        --accent-light: rgba(232, 80, 80, 0.12);
-        --accent-soft: rgba(232, 80, 80, 0.06);
-        --border: #333333;
-        --border-hover: #444444;
-        --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
-    }
+    --accent-light: rgba(232, 80, 80, 0.12);
+    --accent-soft: rgba(232, 80, 80, 0.06);
+    --border: #333333;
+    --border-hover: #444444;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* ===== DARK MODE TOGGLE ===== */

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from app.extensions import db
+from app.extensions import db, parse_float
 from app.models.meta import Meta
 from app.models.venda import Venda
 from app.models.enums import TipoMeta, CategoriaMeta
@@ -17,12 +17,34 @@ def recalcular_financeira(meta):
         meta.valor_atual = round(total, 2)
 
 
+def recalcular_todas_financeiras(metas):
+    hoje = date.today()
+    financeiras = [m for m in metas if m.categoria == CategoriaMeta.FINANCEIRO and not m.concluida]
+    if not financeiras:
+        return
+    
+    min_ini = min(m.data_ini for m in financeiras)
+    max_fim = max(m.data_fim for m in financeiras)
+    
+    vendas_por_data = db.session.query(
+        Venda.data_venda,
+        db.func.sum(Venda.valor_total).label('total')
+    ).filter(Venda.data_venda >= min_ini, Venda.data_venda <= max_fim).group_by(
+        Venda.data_venda
+    ).all()
+    
+    totals_by_date = {v.data_venda: float(v.total or 0) for v in vendas_por_data}
+    
+    for m in financeiras:
+        total = sum(v for d, v in totals_by_date.items() 
+                    if m.data_ini <= d <= m.data_fim)
+        m.valor_atual = round(total, 2)
+
+
 @bp.route('/', methods=['GET', 'POST'])
 def listar():
     metas = Meta.query.order_by(Meta.concluida.asc(), Meta.data_fim.asc()).all()
-    for m in metas:
-        if not m.concluida:
-            recalcular_financeira(m)
+    recalcular_todas_financeiras(metas)
     return render_template('metas/listar.html', metas=metas)
 
 

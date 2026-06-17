@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from app.extensions import db
+from app.extensions import db, parse_float
 from app.models.insumo import Insumo
 
 bp = Blueprint('insumos', __name__)
@@ -21,14 +21,8 @@ def listar():
 def novo():
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip()
-        try:
-            preco_custo = float(request.form.get('preco_custo', 0))
-        except ValueError:
-            preco_custo = 0
-        try:
-            qtd_estoque = float(request.form.get('qtd_estoque', 0))
-        except ValueError:
-            qtd_estoque = 0
+        preco_custo = parse_float(request.form.get('preco_custo', 0))
+        qtd_estoque = parse_float(request.form.get('qtd_estoque', 0))
         unidade = request.form.get('unidade', 'un')
         descricao = request.form.get('descricao', '').strip()
         if not nome:
@@ -50,14 +44,8 @@ def editar(id):
     insumo = Insumo.query.get_or_404(id)
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip()
-        try:
-            preco_custo = float(request.form.get('preco_custo', 0))
-        except ValueError:
-            preco_custo = 0
-        try:
-            qtd_estoque = float(request.form.get('qtd_estoque', 0))
-        except ValueError:
-            qtd_estoque = 0
+        preco_custo = parse_float(request.form.get('preco_custo', 0))
+        qtd_estoque = parse_float(request.form.get('qtd_estoque', 0))
         unidade = request.form.get('unidade', 'un')
         descricao = request.form.get('descricao', '').strip()
         if not nome:

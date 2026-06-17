@@ -18,6 +18,11 @@ class Venda(db.Model):
     observacao = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
+    __table_args__ = (
+        sa.Index('ix_venda_data_forma', 'data_venda', 'forma_pagamento'),
+        sa.Index('ix_venda_cliente', 'cliente_nome'),
+    )
+
     itens = db.relationship('VendaItem', backref='venda_rel',
                             lazy='select', cascade='all, delete-orphan')
 

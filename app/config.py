@@ -16,7 +16,30 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'harborio3d@gmail.com')
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
-    ESTOQUE_BAIXO_LIMITE = 5
-    ESTOQUE_BAIXO_ALERTA = 10
+    ESTOQUE_BAIXO_LIMITE = int(os.environ.get('ESTOQUE_BAIXO_LIMITE', 5))
+    ESTOQUE_BAIXO_ALERTA = int(os.environ.get('ESTOQUE_BAIXO_ALERTA', 10))
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
     SESSION_PERMANENT = True
+
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+    TESTING = False
+
+
+class ProductionConfig(Config):
+    DEBUG = False
+    TESTING = False
+
+
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+
+
+config = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'testing': TestingConfig,
+    'default': DevelopmentConfig,
+}

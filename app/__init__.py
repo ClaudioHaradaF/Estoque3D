@@ -1,11 +1,13 @@
 import os
 import logging
 from flask import Flask, render_template, current_app
-from app.config import Config
+from app.config import Config, config
 from app.extensions import db, migrate, csrf
 
 
 def create_app(config_class=Config):
+    if isinstance(config_class, str):
+        config_class = config.get(config_class) or Config
     app = Flask(__name__)
     app.config.from_object(config_class)
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000

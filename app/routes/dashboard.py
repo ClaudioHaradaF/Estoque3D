@@ -251,7 +251,11 @@ def criar_backup():
 def baixar_backup(nome):
     from app.services.backup import BACKUP_DIR
     caminho = os.path.normpath(os.path.join(BACKUP_DIR, nome))
-    if not caminho.startswith(os.path.normpath(BACKUP_DIR) + os.sep):
+    try:
+        if os.path.commonpath([caminho, BACKUP_DIR]) != BACKUP_DIR:
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('dashboard.listar_backups'))
+    except ValueError:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('dashboard.listar_backups'))
     if not os.path.exists(caminho):

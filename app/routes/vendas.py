@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import subqueryload
 from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from app.extensions import db
+from app.extensions import db, parse_float, parse_int
 from app.models.venda import Venda
 from app.models.venda_item import VendaItem
 from app.models.produto import Produto
@@ -56,13 +56,10 @@ def nova():
         precos = request.form.getlist('preco[]')
 
         for pid, qtd, pco in zip(produtos_ids, quantidades, precos):
-            try:
-                produto_id = int(pid)
-                qtd_venda = int(qtd)
-                preco = float(pco)
-            except ValueError:
-                continue
-            if qtd_venda <= 0:
+            produto_id = parse_int(pid)
+            qtd_venda = parse_int(qtd)
+            preco = parse_float(pco)
+            if produto_id <= 0 or qtd_venda <= 0:
                 continue
             produto = Produto.query.get(produto_id)
             if not produto:
@@ -224,14 +221,14 @@ def rapida_finalizar():
 
     for i, item in enumerate(itens):
         try:
-            produto_id = int(item['id'])
-            qtd = int(item['qtd'])
-            preco = float(item['preco'])
-        except (ValueError, KeyError):
-            erros_itens.append(f'Item {i + 1}: dados inválidos')
+            produto_id = parse_int(item['id'])
+            qtd = parse_int(item['qtd'])
+            preco = parse_float(item['preco'])
+        except KeyError:
+            erros_itens.append(f'Item {i + 1}: dados faltando')
             continue
-        if qtd <= 0:
-            erros_itens.append(f'Item {i + 1}: quantidade inválida')
+        if produto_id <= 0 or qtd <= 0:
+            erros_itens.append(f'Item {i + 1}: dados inválidos')
             continue
         produto = Produto.query.get(produto_id)
         if not produto:
@@ -282,10 +279,7 @@ def criar_avulso():
     if not nome:
         return jsonify({'erro': 'Nome do produto é obrigatório'}), 400
 
-    try:
-        preco = float(preco)
-    except (ValueError, TypeError):
-        preco = 0
+    preco = parse_float(preco)
 
     categoria_id = None
     if categoria_nome:

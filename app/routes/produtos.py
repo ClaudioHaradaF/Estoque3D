@@ -5,7 +5,7 @@ from PIL import Image
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
-from app.extensions import db
+from app.extensions import db, parse_float, parse_int, parse_optional_float
 from app.models.produto import Produto
 from app.models.categoria import Categoria
 from app.models.insumo import Insumo
@@ -14,11 +14,24 @@ from app.models.venda_item import VendaItem
 
 bp = Blueprint('produtos', __name__)
 
-EXTENSOES_PERMITIDAS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+EXTENSOES_PERMITIDAS_IMAGEM = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 
 def arquivo_permitido(nome):
-    return '.' in nome and nome.rsplit('.', 1)[1].lower() in EXTENSOES_PERMITIDAS
+    return '.' in nome and nome.rsplit('.', 1)[1].lower() in EXTENSOES_PERMITIDAS_IMAGEM
+
+
+def validar_magic_bytes(arquivo) -> bool:
+    """Verifica magic bytes da imagem usando Pillow (imghdr removido no Python 3.13+)."""
+    try:
+        header = arquivo.read(1024)
+        arquivo.seek(0)
+        from io import BytesIO
+        img = Image.open(BytesIO(header))
+        img.verify()
+        return img.format and img.format.lower() in EXTENSOES_PERMITIDAS_IMAGEM
+    except Exception:
+        return False
 
 
 def redimensionar_imagem(caminho, max_lado=1200, thumb_lado=200):
@@ -146,44 +159,17 @@ def novo():
         if not nome:
             flash('O nome do produto é obrigatório.', 'danger')
             return render_template('produtos/form.html', produto=None, categorias=categorias, insumos=insumos)
-        try:
-            preco_venda = float(request.form.get('preco_venda', 0))
-        except ValueError:
-            preco_venda = 0
-        try:
-            peso = float(request.form.get('peso', 0)) if request.form.get('peso') else None
-        except ValueError:
-            peso = None
-        try:
-            qtd_estoque = int(request.form.get('qtd_estoque', 0))
-        except ValueError:
-            qtd_estoque = 0
+        preco_venda = parse_float(request.form.get('preco_venda', 0))
+        peso = parse_optional_float(request.form.get('peso'))
+        qtd_estoque = parse_int(request.form.get('qtd_estoque', 0))
         categoria_id = request.form.get('categoria_id', type=int) or None
         descricao = request.form.get('descricao', '').strip()
-        try:
-            tempo_impressao = float(request.form.get('tempo_impressao', 0))
-        except ValueError:
-            tempo_impressao = 0
-        try:
-            custo_maquina_hora = float(request.form.get('custo_maquina_hora', 1.50))
-        except ValueError:
-            custo_maquina_hora = 1.50
-        try:
-            custo_energia_hora = float(request.form.get('custo_energia_hora', 0.75))
-        except ValueError:
-            custo_energia_hora = 0.75
-        try:
-            custo_mao_obra_hora = float(request.form.get('custo_mao_obra_hora', 0))
-        except ValueError:
-            custo_mao_obra_hora = 0
-        try:
-            custo_material_lote = float(request.form.get('custo_material_lote', 0))
-        except ValueError:
-            custo_material_lote = 0
-        try:
-            qtd_por_lote = int(request.form.get('qtd_por_lote', 1))
-        except ValueError:
-            qtd_por_lote = 1
+        tempo_impressao = parse_float(request.form.get('tempo_impressao', 0))
+        custo_maquina_hora = parse_float(request.form.get('custo_maquina_hora', 1.50))
+        custo_energia_hora = parse_float(request.form.get('custo_energia_hora', 0.75))
+        custo_mao_obra_hora = parse_float(request.form.get('custo_mao_obra_hora', 0))
+        custo_material_lote = parse_float(request.form.get('custo_material_lote', 0))
+        qtd_por_lote = parse_int(request.form.get('qtd_por_lote', 1))
 
         produto = Produto(
             nome=nome, preco_venda=preco_venda, peso=peso,
@@ -200,23 +186,22 @@ def novo():
 
         imagem = request.files.get('imagem')
         if imagem and imagem.filename:
-            if arquivo_permitido(imagem.filename):
+            if arquivo_permitido(imagem.filename) and validar_magic_bytes(imagem):
                 nome_arquivo = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(imagem.filename)}"
                 caminho = os.path.join(current_app.config['UPLOAD_FOLDER'], nome_arquivo)
                 imagem.save(caminho)
                 produto.imagem = nome_arquivo
                 redimensionar_imagem(caminho)
             else:
-                flash('Formato de imagem não permitido.', 'warning')
+                flash('Formato de imagem não permitido ou arquivo inválido.', 'warning')
 
         ids_insumos = request.form.getlist('insumo_id')
         quantidades = request.form.getlist('insumo_qtd')
         for iid, qtd in zip(ids_insumos, quantidades):
-            try:
-                insumo_id = int(iid)
-                qtd_usada = float(qtd) if qtd else 1
-            except ValueError:
+            insumo_id = parse_int(iid)
+            if not insumo_id:
                 continue
+            qtd_usada = parse_float(qtd, 1)
             if qtd_usada > 0:
                 pi = ProdutoInsumo(produto_id=produto.id, insumo_id=insumo_id, qtd_usada=qtd_usada)
                 db.session.add(pi)
@@ -242,44 +227,17 @@ def editar(id):
         if not nome:
             flash('O nome do produto é obrigatório.', 'danger')
             return render_template('produtos/form.html', produto=produto, categorias=categorias, insumos=insumos)
-        try:
-            preco_venda = float(request.form.get('preco_venda', 0))
-        except ValueError:
-            preco_venda = 0
-        try:
-            peso = float(request.form.get('peso', 0)) if request.form.get('peso') else None
-        except ValueError:
-            peso = None
-        try:
-            qtd_estoque = int(request.form.get('qtd_estoque', 0))
-        except ValueError:
-            qtd_estoque = 0
+        preco_venda = parse_float(request.form.get('preco_venda', 0))
+        peso = parse_optional_float(request.form.get('peso'))
+        qtd_estoque = parse_int(request.form.get('qtd_estoque', 0))
         categoria_id = request.form.get('categoria_id', type=int) or None
         descricao = request.form.get('descricao', '').strip()
-        try:
-            tempo_impressao = float(request.form.get('tempo_impressao', 0))
-        except ValueError:
-            tempo_impressao = 0
-        try:
-            custo_maquina_hora = float(request.form.get('custo_maquina_hora', 1.50))
-        except ValueError:
-            custo_maquina_hora = 1.50
-        try:
-            custo_energia_hora = float(request.form.get('custo_energia_hora', 0.75))
-        except ValueError:
-            custo_energia_hora = 0.75
-        try:
-            custo_mao_obra_hora = float(request.form.get('custo_mao_obra_hora', 0))
-        except ValueError:
-            custo_mao_obra_hora = 0
-        try:
-            custo_material_lote = float(request.form.get('custo_material_lote', 0))
-        except ValueError:
-            custo_material_lote = 0
-        try:
-            qtd_por_lote = int(request.form.get('qtd_por_lote', 1))
-        except ValueError:
-            qtd_por_lote = 1
+        tempo_impressao = parse_float(request.form.get('tempo_impressao', 0))
+        custo_maquina_hora = parse_float(request.form.get('custo_maquina_hora', 1.50))
+        custo_energia_hora = parse_float(request.form.get('custo_energia_hora', 0.75))
+        custo_mao_obra_hora = parse_float(request.form.get('custo_mao_obra_hora', 0))
+        custo_material_lote = parse_float(request.form.get('custo_material_lote', 0))
+        qtd_por_lote = parse_int(request.form.get('qtd_por_lote', 1))
 
         produto.nome = nome
         produto.preco_venda = preco_venda
@@ -296,7 +254,7 @@ def editar(id):
 
         imagem = request.files.get('imagem')
         if imagem and imagem.filename:
-            if arquivo_permitido(imagem.filename):
+            if arquivo_permitido(imagem.filename) and validar_magic_bytes(imagem):
                 nome_arquivo = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(imagem.filename)}"
                 caminho = os.path.join(current_app.config['UPLOAD_FOLDER'], nome_arquivo)
                 imagem.save(caminho)
@@ -309,17 +267,16 @@ def editar(id):
                 produto.imagem = nome_arquivo
                 redimensionar_imagem(caminho)
             else:
-                flash('Formato de imagem não permitido.', 'warning')
+                flash('Formato de imagem não permitido ou arquivo inválido.', 'warning')
 
         ProdutoInsumo.query.filter_by(produto_id=produto.id).delete()
         ids_insumos = request.form.getlist('insumo_id')
         quantidades = request.form.getlist('insumo_qtd')
         for iid, qtd in zip(ids_insumos, quantidades):
-            try:
-                insumo_id = int(iid)
-                qtd_usada = float(qtd) if qtd else 1
-            except ValueError:
+            insumo_id = parse_int(iid)
+            if not insumo_id:
                 continue
+            qtd_usada = parse_float(qtd, 1)
             if qtd_usada > 0:
                 pi = ProdutoInsumo(produto_id=produto.id, insumo_id=insumo_id, qtd_usada=qtd_usada)
                 db.session.add(pi)
